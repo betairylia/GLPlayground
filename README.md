@@ -8,7 +8,7 @@ I need warm warm OpenGL to play with lol
 ## CS_Voxel Drawer
 A simple voxel engine that uses compute shader to render the voxels.  
 here is an animated GIF:  
-![](CS_VoxelDrawer\animated.gif)
+![](CS_VoxelDrawer/animated.gif)
 
 Block Count = (10 x 10) x (32 x 32 x 32) = 320 (X) x 32 (Y) x 320 (Z)
 
