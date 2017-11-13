@@ -10,6 +10,11 @@ A simple voxel engine that uses compute shader to render the voxels.
 here is an animated GIF:  
 ![](CS_VoxelDrawer/animated.gif)
 
+**Compile**  
+dep_glew_glfw_glut.zip was compiled for Visual Studio 2015 x64.  
+If you have other compilers, maybe you need complie those librarys from their own source.  
+you may need copy the .dll s from glut/bin and glew/bin.
+
 Block Count = (10 x 10) x (32 x 32 x 32) = 320 (X) x 32 (Y) x 320 (Z)
 
 It gets ~40FPS on my Razer 2017 ( GTX1060 6GB - 7700HQ - 16GB RAM ),  
