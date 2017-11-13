@@ -20,10 +20,10 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 		{
 			for (int z = 0; z < 32; z++)
 			{
-				//if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
-				//	y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
-				if (y < 15 + ax * (sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) *
-						(sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
+				if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
+					y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
+				/*if (y < 15 + ax * (sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) *
+						(sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))*/
 				{
 					blockId[getPos(x, y, z)] = 1;
 				}

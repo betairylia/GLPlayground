@@ -405,17 +405,25 @@ void update()
 
 	glUseProgram(compute_programme);
 
-	lambdax = 32.0f + 10.0f * sinf(nowTime * 0.3f);
-	lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
+	lambdax = 32.0f + 24.0f * sinf(nowTime * 3.0f);
+	//lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
 
 	int start = glutGet(GLUT_ELAPSED_TIME);
 
-	for each (auto grp in blockGroupList)
+	//for each (auto grp in blockGroupList)
+	//{
+	//	if ((rand() % 100 <= 100))
+	//	{
+	//		grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, grp->blockGroupPos.x, grp->blockGroupPos.z);
+	//	}
+	//}
+
+#pragma omp parallel for num_threads(8)
+	for (int i = 0; i < blockGroupList.size(); i++)
 	{
-		if ((rand() % 100 <= 100))
-		{
-			grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, grp->blockGroupPos.x, grp->blockGroupPos.z);
-		}
+		blockGroupList.at(i)->Init_sinXsinY(
+			lambdax, lambdaz, px, pz, ax, az, 
+			blockGroupList.at(i)->blockGroupPos.x, blockGroupList.at(i)->blockGroupPos.z);
 	}
 
 	int dur = glutGet(GLUT_ELAPSED_TIME) - start;
