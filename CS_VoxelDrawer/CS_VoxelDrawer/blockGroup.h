@@ -11,6 +11,13 @@
 
 #include <cstdio>
 
+typedef  struct {
+	GLuint  count;
+	GLuint  primCount;
+	GLuint  first;
+	GLuint  baseInstance;
+} DrawArraysIndirectCommand;
+
 class blockGroup
 {
 public:
@@ -18,11 +25,11 @@ public:
 	virtual ~blockGroup();
 
 	//generate data inside a blockGroup.
-	void Init_sinXsinY(float fx, float fz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ);
+	void Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ);
 	void InitBuffers(GLuint _cs);
 
 	//glUseProgram(...) before call this method
-	void GenerateBuffer();
+	void GenerateBuffer(bool uploadBuffers = false);
 
 	//glUseProgram(...) before call this method
 	//glBindVertexArray(...) before call this method
@@ -36,11 +43,12 @@ public:
 
 	//the main buffer for a blockGroup.
 	unsigned int blockId[32768];
-	GLuint instanceCount;
+	//GLuint instanceCount;
 	//GLsizei baseInstanceVertexCount;
+	DrawArraysIndirectCommand cmd;
 
 	//Buffers used for computation and drawing
-	GLuint cs_vao, blockId_ssbo, blockPos_ssbo, instanceCount_ssbo;
+	GLuint cs_vao, blockId_ssbo, blockPos_ssbo, indirectBuffer_ssbo, indirectBuffer_ssbo_cpy;
 	//GLuint baseInstance_cube;
 	//GLuint compute_program;
 

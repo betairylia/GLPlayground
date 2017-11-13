@@ -10,15 +10,20 @@ blockGroup::~blockGroup()
 {
 }
 
-void blockGroup::Init_sinXsinY(float fx, float fz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ)
+void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ)
 {
+	memset(blockId, 0, sizeof(blockId));
+
 	for (int x = 0; x < 32; x++)
 	{
 		for (int y = 0; y < 32; y++)
 		{
 			for (int z = 0; z < 32; z++)
 			{
-				if (y < 10)
+				//if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
+				//	y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
+				if (y < 15 + ax * (sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) *
+						(sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
 				{
 					blockId[getPos(x, y, z)] = 1;
 				}
@@ -40,13 +45,18 @@ void blockGroup::Init_sinXsinY(float fx, float fz, float px, float pz, float ax,
 void blockGroup::InitBuffers(GLuint _cs)
 {
 	//compute_program = _cs;
+	cmd.baseInstance = 0;
+	cmd.count = 36;
+	cmd.first = 0;
+	cmd.primCount = 0;
 
 	glGenVertexArrays(1, &cs_vao);
 	glBindVertexArray(cs_vao);
 
 	glGenBuffers(1, &blockId_ssbo);
 	glGenBuffers(1, &blockPos_ssbo);
-	glGenBuffers(1, &instanceCount_ssbo);
+	glGenBuffers(1, &indirectBuffer_ssbo);
+	glGenBuffers(1, &indirectBuffer_ssbo_cpy);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockId_ssbo);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * 32768, blockId, GL_DYNAMIC_DRAW);
@@ -55,20 +65,35 @@ void blockGroup::InitBuffers(GLuint _cs)
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockPos_ssbo);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * 8192, NULL, GL_DYNAMIC_DRAW);
 
-	unsigned int zero = 0;
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo_cpy);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(DrawArraysIndirectCommand), &cmd, GL_STREAM_READ);
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, instanceCount_ssbo);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint), &zero, GL_STREAM_READ);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(DrawArraysIndirectCommand), &cmd, GL_STREAM_READ);
 
 	bufferInited = true;
 }
 
 //glUseProgram(...) before call this method
-void blockGroup::GenerateBuffer()
+void blockGroup::GenerateBuffer(bool uploadBuffers)
 {
 	if (bufferInited)
 	{
-		const GLuint ssbos[] = { blockId_ssbo, blockPos_ssbo, instanceCount_ssbo };
+		//upload buffers if required
+		if (uploadBuffers)
+		{
+			glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockId_ssbo);
+			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(blockId), blockId);
+		}
+
+		//clear the indirect buffer
+		glBindBuffer(GL_COPY_READ_BUFFER, indirectBuffer_ssbo_cpy);
+		glBindBuffer(GL_COPY_WRITE_BUFFER, indirectBuffer_ssbo);
+		glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, sizeof(DrawArraysIndirectCommand));
+
+		glMemoryBarrier(GL_COPY_WRITE_BUFFER);
+
+		const GLuint ssbos[] = { blockId_ssbo, blockPos_ssbo, indirectBuffer_ssbo };
 		glBindBuffersBase(GL_SHADER_STORAGE_BUFFER, 0, 3, ssbos);
 
 		//upload blockgroup position into the uniform buffer
@@ -91,8 +116,8 @@ void blockGroup::GenerateBuffer()
 			memcpy(&instanceCount, p, sizeof(instanceCount));
 			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);*/
 			
-			glBindBuffer(GL_SHADER_STORAGE_BUFFER, instanceCount_ssbo);
-			glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &instanceCount);
+			//glBindBuffer(GL_SHADER_STORAGE_BUFFER, instanceCount_ssbo);
+			//glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(unsigned int), &instanceCount);
 		//}
 
 		bufferUpdated = true;
@@ -119,8 +144,11 @@ void blockGroup::Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixU
 		glVertexAttribPointer(instanceAttribIndex, 4, GL_FLOAT, GL_FALSE, 0, NULL);
 		glVertexAttribDivisor(instanceAttribIndex, 1);
 
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirectBuffer_ssbo);
+
 		//TODO: use glDrawArraysIndirect instead.
-		glDrawArraysInstanced(GL_TRIANGLES, 0, vertCount, instanceCount);
+		//glDrawArraysInstanced(GL_TRIANGLES, 0, vertCount, instanceCount);
+		glDrawArraysIndirect(GL_TRIANGLES, (void *)0);
 		
 	}
 	else

@@ -127,12 +127,13 @@ float prevTime, nowTime;
 
 std::vector<blockGroup *> blockGroupList;
 
-int groupCountX = 5, groupCountZ = 5;
-float fx = 1, fy = 2, ax = 16, ay = 22, px = 3, py = 2;
+int groupCountX = 10, groupCountZ = 10;
+float lambdax = 20, lambdaz = 20, ax = 5, az = 5, px = 3, pz = 12;
 
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
+float scalarSpeed = 5.0f;
 
 /* A simple function that will read a file into an allocated char pointer buffer */
 char* filetobuf(char *file)
@@ -155,6 +156,42 @@ char* filetobuf(char *file)
 	return buf; /* Return the buffer */
 }
 
+void setVSync(bool sync)
+{
+	// Function pointer for the wgl extention function we need to enable/disable
+	// vsync
+	typedef BOOL(APIENTRY *PFNWGLSWAPINTERVALPROC)(int);
+	PFNWGLSWAPINTERVALPROC wglSwapIntervalEXT = 0;
+
+	bool flag = false;
+
+	GLint n, i;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &n);
+	for (i = 0; i < n; i++) 
+	{
+		char* extensions = (char *)glGetStringi(GL_EXTENSIONS, i);
+		printf("%s\n", extensions);
+
+		if (strstr(extensions, "WGL_EXT_swap_control") != 0)
+		{
+			flag = true;
+			break;
+		}
+	}
+
+	if (flag == false)
+	{
+		return;
+	}
+	else
+	{
+		wglSwapIntervalEXT = (PFNWGLSWAPINTERVALPROC)wglGetProcAddress("wglSwapIntervalEXT");
+
+		if (wglSwapIntervalEXT)
+			wglSwapIntervalEXT(sync);
+	}
+}
+
 //init glew & glut
 void initGL(int *argc, char **argv)
 {
@@ -168,6 +205,8 @@ void initGL(int *argc, char **argv)
 	// start GLEW extension handler
 	glewExperimental = GL_TRUE;
 	glewInit();
+
+	setVSync(false);
 
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.25, 0.25, 0.25, 1.0);
@@ -192,7 +231,7 @@ void initBlockGroups()
 		for (int z = 0; z < groupCountZ; z++)
 		{
 			blockGroup* grp = new blockGroup();
-			grp->Init_sinXsinY(fx, fy, px, py, ax, ay, x * 32.0f, z * 32.0f);
+			grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
 			grp->InitBuffers(compute_programme);
 			grp->GenerateBuffer();
 
@@ -328,6 +367,8 @@ void render()
 	glutPostRedisplay();
 }
 
+int frameCount = 0;
+
 //update
 void update()
 {
@@ -336,8 +377,8 @@ void update()
 	prevTime = nowTime;
 
 	//cameraRot = glm::rotate(cameraRot, -mouse_dx * 180.0f * dTime, glm::vec3(0.0f, 1.0f, 0.0f));
-	cameraRotY += -mouse_dx * 4.0f * dTime;
-	cameraRotX += -mouse_dy * 4.0f * dTime;
+	cameraRotY += -mouse_dx * 2.0f * dTime;
+	cameraRotX += -mouse_dy * 2.0f * dTime;
 	cameraRot = glm::eulerAngleYX(cameraRotY, cameraRotX);
 
 	mouse_dx = 0;
@@ -354,25 +395,47 @@ void update()
 		cameraRotX = 180.0f;*/
 
 	glm::vec4 camMoveSpeed;
-	camMoveSpeed.z += (float)(keyState['s'] - keyState['w']) * 5.0f * dTime;
-	camMoveSpeed.x += (float)(keyState['d'] - keyState['a']) * 5.0f * dTime;
-	camMoveSpeed.y += (float)(keyState['q'] - keyState['e']) * 5.0f * dTime;
+
+	camMoveSpeed.z += (float)(keyState['s'] - keyState['w']) * scalarSpeed * dTime;
+	camMoveSpeed.x += (float)(keyState['d'] - keyState['a']) * scalarSpeed * dTime;
+	camMoveSpeed.y += (float)(keyState['q'] - keyState['e']) * scalarSpeed * dTime;
 	camMoveSpeed.w = 1.0f;
 
 	cameraPos += (cameraRot * camMoveSpeed).xyz();
 
 	glUseProgram(compute_programme);
+
+	lambdax = 32.0f + 10.0f * sinf(nowTime * 0.3f);
+	lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
+
+	int start = glutGet(GLUT_ELAPSED_TIME);
+
 	for each (auto grp in blockGroupList)
 	{
-		//if (grp->bufferUpdated == false)
-		//{
-			grp->GenerateBuffer();
-		//}
+		if ((rand() % 100 <= 100))
+		{
+			grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, grp->blockGroupPos.x, grp->blockGroupPos.z);
+		}
 	}
 
-	char windowTitle[50];
-	sprintf(windowTitle, "Voxel test - fps: %.2f;", 1.0f / dTime);
-	glutSetWindowTitle(windowTitle);
+	int dur = glutGet(GLUT_ELAPSED_TIME) - start;
+	
+	for each (auto grp in blockGroupList)
+	{
+		if (grp->bufferUpdated == false)
+		{
+			grp->GenerateBuffer(true);
+		}
+	}
+
+	if (frameCount % 60 == 0)
+	{
+		char windowTitle[50];
+		sprintf(windowTitle, "Voxel test - fps: %.2f; updateBlockId: %d ms", 1.0f / dTime, dur);
+		glutSetWindowTitle(windowTitle);
+	}
+
+	frameCount++;
 }
 
 //clean up
@@ -430,6 +493,15 @@ void key(unsigned char key, int x, int y)
 	if (key == 'e' || key == 'E')
 	{
 		keyState['e'] = true;
+	}
+
+	if (glutGetModifiers() & GLUT_ACTIVE_SHIFT)
+	{
+		scalarSpeed = 12.0f;
+	}
+	else
+	{
+		scalarSpeed = 5.0f;
 	}
 }
 
