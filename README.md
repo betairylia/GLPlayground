@@ -12,6 +12,7 @@ here is an animated GIF:
 
 **Compile**  
 dep_glew_glfw_glut.zip was compiled for Visual Studio 2015 x64.  
+You need extract that zip file in root folder. (**NOT** something like dep_glew_glfw_glut/...)  
 If you have other compilers, maybe you need complie those librarys from their own source.  
 you may need copy the .dll s from glut/bin and glew/bin.
 
