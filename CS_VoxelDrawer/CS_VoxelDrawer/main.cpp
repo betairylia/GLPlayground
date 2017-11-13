@@ -14,6 +14,8 @@
 
 #include "blockGroup.h"
 
+//#define TEST_OPTION_UPDATE_PER_FRAME
+
 GLfloat cube_positions[] = 
 {
 	 0.0f, 0.0f, 0.0f, 1.0f, // triangle 1 : begin
@@ -403,20 +405,13 @@ void update()
 
 	cameraPos += (cameraRot * camMoveSpeed).xyz();
 
+	int start = glutGet(GLUT_ELAPSED_TIME);
+
+#ifdef TEST_OPTION_UPDATE_PER_FRAME
 	glUseProgram(compute_programme);
 
 	lambdax = 32.0f + 24.0f * sinf(nowTime * 3.0f);
 	//lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
-
-	int start = glutGet(GLUT_ELAPSED_TIME);
-
-	//for each (auto grp in blockGroupList)
-	//{
-	//	if ((rand() % 100 <= 100))
-	//	{
-	//		grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, grp->blockGroupPos.x, grp->blockGroupPos.z);
-	//	}
-	//}
 
 #pragma omp parallel for num_threads(8)
 	for (int i = 0; i < blockGroupList.size(); i++)
@@ -425,6 +420,7 @@ void update()
 			lambdax, lambdaz, px, pz, ax, az, 
 			blockGroupList.at(i)->blockGroupPos.x, blockGroupList.at(i)->blockGroupPos.z);
 	}
+#endif
 
 	int dur = glutGet(GLUT_ELAPSED_TIME) - start;
 	
