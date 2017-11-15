@@ -8,7 +8,13 @@ I need warm warm OpenGL to play with lol
 ## CS_Voxel Drawer
 A simple voxel engine that uses compute shader to render the voxels.  
 here is an animated GIF:  
-![](CS_VoxelDrawer\animated.gif)
+![](CS_VoxelDrawer/animated.gif)
+
+**Compile**  
+dep_glew_glfw_glut.zip was compiled for Visual Studio 2015 x64.  
+You need extract that zip file in root folder. (**NOT** something like dep_glew_glfw_glut/...)  
+If you have other compilers, maybe you need complie those librarys from their own source.  
+you may need copy the .dll s from glut/bin and glew/bin.
 
 Block Count = (10 x 10) x (32 x 32 x 32) = 320 (X) x 32 (Y) x 320 (Z)
 
