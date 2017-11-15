@@ -20,10 +20,10 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 		{
 			for (int z = 0; z < 32; z++)
 			{
-				if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
-					y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
-				/*if (y < 15 + ax * (sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) *
-						(sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))*/
+				//if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
+				//	y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
+				if (y < 15 + ax * (sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) *
+						(sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
 				{
 					blockId[getPos(x, y, z)] = 1;
 				}
@@ -54,22 +54,23 @@ void blockGroup::InitBuffers(GLuint _cs)
 	glBindVertexArray(cs_vao);
 
 	glGenBuffers(1, &blockId_ssbo);
-	glGenBuffers(1, &blockPos_ssbo);
+	glGenBuffers(1, &blockInstance_ssbo);
+	glGenBuffers(1, &blockProp_ssbo);
 	glGenBuffers(1, &indirectBuffer_ssbo);
-	glGenBuffers(1, &indirectBuffer_ssbo_cpy);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockId_ssbo);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * 32768, blockId, GL_DYNAMIC_DRAW);
 
 	//size is fixed at 8192 now.
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockPos_ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockInstance_ssbo);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * 8192, NULL, GL_DYNAMIC_DRAW);
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo_cpy);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(DrawArraysIndirectCommand), &cmd, GL_STREAM_READ);
+	//size is fixed at 8192 now.
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockProp_ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::ivec4) * 8192, NULL, GL_DYNAMIC_DRAW);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(DrawArraysIndirectCommand), &cmd, GL_STREAM_READ);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(DrawArraysIndirectCommand), &cmd, GL_DYNAMIC_DRAW);
 
 	bufferInited = true;
 }
@@ -87,14 +88,16 @@ void blockGroup::GenerateBuffer(bool uploadBuffers)
 		}
 
 		//clear the indirect buffer
-		glBindBuffer(GL_COPY_READ_BUFFER, indirectBuffer_ssbo_cpy);
-		glBindBuffer(GL_COPY_WRITE_BUFFER, indirectBuffer_ssbo);
-		glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, sizeof(DrawArraysIndirectCommand));
+		cmd.baseInstance = 0;
+		cmd.count = 36;
+		cmd.first = 0;
+		cmd.primCount = 0;
 
-		glMemoryBarrier(GL_COPY_WRITE_BUFFER);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo);
+		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(DrawArraysIndirectCommand), &cmd);
 
-		const GLuint ssbos[] = { blockId_ssbo, blockPos_ssbo, indirectBuffer_ssbo };
-		glBindBuffersBase(GL_SHADER_STORAGE_BUFFER, 0, 3, ssbos);
+		const GLuint ssbos[] = { blockId_ssbo, blockInstance_ssbo, blockProp_ssbo, indirectBuffer_ssbo };
+		glBindBuffersBase(GL_SHADER_STORAGE_BUFFER, 0, 4, ssbos);
 
 		//upload blockgroup position into the uniform buffer
 		//glUniform3f(0, blockGroupPos.x, blockGroupPos.y, blockGroupPos.z);
@@ -103,9 +106,8 @@ void blockGroup::GenerateBuffer(bool uploadBuffers)
 		glDispatchCompute(4, 4, 4);
 
 		GLenum err;
-		if ((err = glGetError()) != GL_NO_ERROR)
-		{
-			printf("Error while dispatch compute shader!");
+		while ((err = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL error: " << err << std::endl;
 		}
 
 		//get instance count
@@ -139,10 +141,15 @@ void blockGroup::Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixU
 
 		glUniformMatrix4fv(modelMatrixUniformIndex, 1, GL_FALSE, glm::value_ptr(modelMat));
 
-		glBindBuffer(GL_ARRAY_BUFFER, blockPos_ssbo);
+		glBindBuffer(GL_ARRAY_BUFFER, blockInstance_ssbo);
 		glEnableVertexAttribArray(instanceAttribIndex);
 		glVertexAttribPointer(instanceAttribIndex, 4, GL_FLOAT, GL_FALSE, 0, NULL);
 		glVertexAttribDivisor(instanceAttribIndex, 1);
+
+		glBindBuffer(GL_ARRAY_BUFFER, blockProp_ssbo);
+		glEnableVertexAttribArray(instanceAttribIndex + 1);
+		glVertexAttribPointer(instanceAttribIndex + 1, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+		glVertexAttribDivisor(instanceAttribIndex + 1, 1);
 
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirectBuffer_ssbo);
 

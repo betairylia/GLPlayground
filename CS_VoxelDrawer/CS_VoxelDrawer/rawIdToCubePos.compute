@@ -2,8 +2,9 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(std430, binding = 0) buffer idBlock { uint blockId[]; };
-layout(std430, binding = 1) buffer instanceBlock { vec4 blockPosInstance[]; };
-layout(std430, binding = 2) buffer indirectBuffer
+layout(std430, binding = 1) buffer instanceBlock1 { vec4 blockPosInstance[]; };
+layout(std430, binding = 2) buffer instanceBlock2 { ivec4 blockPropInstance[]; };
+layout(std430, binding = 3) buffer indirectBuffer
 {
     uint  count;
     uint  instanceCount;
@@ -35,5 +36,6 @@ void main()
     {
         uint index = atomicAdd(instanceCount, 1);
         blockPosInstance[index] = vec4(float(blockPos.x), float(blockPos.y), float(blockPos.z), 0.0f);
+        blockPropInstance[index].x = (clamp(blockPos.y, 8, 24) - 8) * 2;
     }
 }

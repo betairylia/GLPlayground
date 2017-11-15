@@ -12,9 +12,9 @@
 #include <gtc/matrix_transform.hpp>
 #include <gtx/euler_angles.hpp>
 
-#include "blockGroup.h"
+#include <iostream>
 
-//#define TEST_OPTION_UPDATE_PER_FRAME
+#include "blockGroup.h"
 
 GLfloat cube_positions[] = 
 {
@@ -118,24 +118,42 @@ GLfloat cube_normals[] =
 	 0.0f, 0.0f, 1.0f,
 };
 
+static const GLfloat g_quad_vertex_buffer_data[] = {
+	-1.0f, -1.0f, 0.0f,
+	1.0f, -1.0f, 0.0f,
+	-1.0f,  1.0f, 0.0f,
+	-1.0f,  1.0f, 0.0f,
+	1.0f, -1.0f, 0.0f,
+	1.0f,  1.0f, 0.0f,
+};
+
 GLuint vao_cube, vbo_position, vbo_normal, vs, fs, cs, shader_programme, compute_programme;
+GLuint vao_screenQuad, vbo_screenQuad;
 glm::vec3 cameraPos;
 glm::mat4 cameraRot;
 
 bool keyState[256] = {};
+bool updateEveryFrame = true;
 
 float cameraArc = 60.0f, aspectRatio = 16.0f / 9.0f, cameraNear = 0.3f, cameraFar = 1000.0f;
 float prevTime, nowTime;
 
 std::vector<blockGroup *> blockGroupList;
 
-int groupCountX = 10, groupCountZ = 10;
+int groupCountX = 6, groupCountZ = 6;
 float lambdax = 20, lambdaz = 20, ax = 5, az = 5, px = 3, pz = 12;
 
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
 float scalarSpeed = 5.0f;
+
+//Rendering stuffs
+const int windowHeight = 1280, windowWidth = 720;
+
+GLuint frameBuffer_MRT, frameBuffer_SSAO = 0;
+GLuint RT_Position, RT_Normal, RT_Color, RT_AOMap = 0;
+GLuint RT_Depth = 0;
 
 /* A simple function that will read a file into an allocated char pointer buffer */
 char* filetobuf(char *file)
@@ -172,7 +190,6 @@ void setVSync(bool sync)
 	for (i = 0; i < n; i++) 
 	{
 		char* extensions = (char *)glGetStringi(GL_EXTENSIONS, i);
-		printf("%s\n", extensions);
 
 		if (strstr(extensions, "WGL_EXT_swap_control") != 0)
 		{
@@ -201,14 +218,14 @@ void initGL(int *argc, char **argv)
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
 	glutInitContextVersion(4, 4);
 	glutInitContextFlags(GLUT_CORE_PROFILE | GLUT_DEBUG);
-	glutInitWindowSize(1280, 720);
+	glutInitWindowSize(windowHeight, windowWidth);
 	glutCreateWindow("Hello triangle!");
 
 	// start GLEW extension handler
 	glewExperimental = GL_TRUE;
 	glewInit();
 
-	setVSync(false);
+	setVSync(true);
 
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.25, 0.25, 0.25, 1.0);
@@ -227,13 +244,16 @@ void initGL(int *argc, char **argv)
 
 void initBlockGroups()
 {
+
 	glUseProgram(compute_programme);
+
 	for (int x = 0; x < groupCountX; x++)
 	{
 		for (int z = 0; z < groupCountZ; z++)
 		{
 			blockGroup* grp = new blockGroup();
 			grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
+			
 			grp->InitBuffers(compute_programme);
 			grp->GenerateBuffer();
 
@@ -314,6 +334,14 @@ void initApp()
 		printf("The fragment shader failed to compile with the error: %s \n", infolog);
 	}
 
+	glUseProgram(shader_programme);
+
+	glm::vec4 colorLow = glm::vec4(1.0f, 0.356f, 0.529f, 1.0f);
+	glm::vec4 colorHigh = glm::vec4(0.356f, 1.0f, 0.635f, 1.0f);
+
+	glUniform4fv(glGetUniformLocation(shader_programme, "colorLow"), 1, glm::value_ptr(colorLow));
+	glUniform4fv(glGetUniformLocation(shader_programme, "colorHigh"), 1, glm::value_ptr(colorHigh));
+
 	//==Compute shader==
 
 	const char* compute_shader = filetobuf("rawIdToCubePos.compute");
@@ -333,6 +361,101 @@ void initApp()
 		printf("The compute shader failed to compile with the error: %s \n", infolog);
 	}
 
+	GLint isLinked = 0;
+	glGetProgramiv(shader_programme, GL_LINK_STATUS, &isLinked);
+	if (isLinked == GL_FALSE)
+	{
+		//The maxLength includes the NULL character
+		char infolog[1024];
+		glGetProgramInfoLog(shader_programme, 1024, NULL, infolog);
+
+		printf("The vert-frag shader failed to linking with the error: %s \n", infolog);
+
+		//Provide the infolog in whatever manner you deem best.
+		//Exit with failure.
+		return;
+	}
+
+	///////////////////////////
+	//Rendering stuffs
+	///////////////////////////
+
+	glGenFramebuffers(1, &frameBuffer_MRT);
+	glGenFramebuffers(1, &frameBuffer_SSAO);
+
+	glGenTextures(1, &RT_Position);
+	glGenTextures(1, &RT_Normal);
+	glGenTextures(1, &RT_Color);
+	glGenTextures(1, &RT_AOMap);
+
+	glBindTexture(GL_TEXTURE_2D, RT_Position);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowWidth, windowHeight, 0, GL_RGBA, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_2D, RT_Normal);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowWidth, windowHeight, 0, GL_RGBA, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_2D, RT_Color);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowWidth, windowHeight, 0, GL_RGBA, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_2D, RT_AOMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowWidth, windowHeight, 0, GL_RGBA, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glGenRenderbuffers(1, &RT_Depth);
+	glBindRenderbuffer(GL_RENDERBUFFER, RT_Depth);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, windowWidth, windowHeight);
+
+	//MRT Pass
+
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer_MRT);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, RT_Depth);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, RT_Position, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, RT_Normal, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, RT_Color, 0);
+	{
+		GLenum DrawBuffers[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+		glDrawBuffers(3, DrawBuffers); // "1" is the size of DrawBuffers
+	}
+	// Always check that our framebuffer is ok
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("Error on FB0 creation\n");
+	}
+
+	//SSAO Pass
+
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer_SSAO);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, RT_AOMap, 0);
+	{
+		GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+		glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
+	}
+	// Always check that our framebuffer is ok
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("Error on FB1 creation\n");
+	}
+
+	//The screen quad
+	glGenVertexArrays(1, &vao_screenQuad);
+	glBindVertexArray(vao_screenQuad);
+
+	glGenBuffers(1, &vbo_screenQuad);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_screenQuad);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
+
+	// Create and compile our GLSL program from the shaders
+	//GLuint quad_programID = LoadShaders("Passthrough.vertexshader", "SimpleTexture.fragmentshader");
+	//GLuint texID = glGetUniformLocation(quad_programID, "renderedTexture");
+	//GLuint timeID = glGetUniformLocation(quad_programID, "time");
+
 	initBlockGroups();
 }
 
@@ -348,6 +471,7 @@ void render()
 	// wipe the drawing surface clear
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glUseProgram(shader_programme);
 	glBindVertexArray(vao_cube);
 
@@ -407,20 +531,23 @@ void update()
 
 	int start = glutGet(GLUT_ELAPSED_TIME);
 
-#ifdef TEST_OPTION_UPDATE_PER_FRAME
-	glUseProgram(compute_programme);
+	if (updateEveryFrame)
+	{
+		glUseProgram(compute_programme);
 
-	lambdax = 32.0f + 24.0f * sinf(nowTime * 3.0f);
-	//lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
+		lambdax = 32.0f + 24.0f * sinf(nowTime * 3.0f);
+		lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
+
+		ax = 10.0f + 6.0f * sinf(nowTime * 4.4f);
 
 #pragma omp parallel for num_threads(8)
-	for (int i = 0; i < blockGroupList.size(); i++)
-	{
-		blockGroupList.at(i)->Init_sinXsinY(
-			lambdax, lambdaz, px, pz, ax, az, 
-			blockGroupList.at(i)->blockGroupPos.x, blockGroupList.at(i)->blockGroupPos.z);
+		for (int i = 0; i < blockGroupList.size(); i++)
+		{
+			blockGroupList.at(i)->Init_sinXsinY(
+				lambdax, lambdaz, px, pz, ax, az,
+				blockGroupList.at(i)->blockGroupPos.x, blockGroupList.at(i)->blockGroupPos.z);
+		}
 	}
-#endif
 
 	int dur = glutGet(GLUT_ELAPSED_TIME) - start;
 	
@@ -497,6 +624,11 @@ void key(unsigned char key, int x, int y)
 	if (key == 'e' || key == 'E')
 	{
 		keyState['e'] = true;
+	}
+
+	if (key == 'p' || key == 'P')
+	{
+		updateEveryFrame = !updateEveryFrame;
 	}
 
 	if (glutGetModifiers() & GLUT_ACTIVE_SHIFT)

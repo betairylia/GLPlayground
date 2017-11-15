@@ -10,6 +10,7 @@
 #include <gtc/matrix_transform.hpp>
 
 #include <cstdio>
+#include <iostream>
 
 typedef  struct {
 	GLuint  count;
@@ -17,6 +18,12 @@ typedef  struct {
 	GLuint  first;
 	GLuint  baseInstance;
 } DrawArraysIndirectCommand;
+
+typedef struct {
+	glm::vec4 pos;
+	glm::vec4 color;
+	glm::i32 aabb;
+} InstanceData;
 
 class blockGroup
 {
@@ -48,7 +55,7 @@ public:
 	DrawArraysIndirectCommand cmd;
 
 	//Buffers used for computation and drawing
-	GLuint cs_vao, blockId_ssbo, blockPos_ssbo, indirectBuffer_ssbo, indirectBuffer_ssbo_cpy;
+	GLuint cs_vao, blockId_ssbo, blockInstance_ssbo, blockProp_ssbo, indirectBuffer_ssbo;
 	//GLuint baseInstance_cube;
 	//GLuint compute_program;
 
