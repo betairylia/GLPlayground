@@ -27,15 +27,21 @@ void main()
         return;
     }
 
-    if( !((blockPos.x > 0 && blockId[serPos - 32 * 32] != 0) &&
-          (blockPos.x <31 && blockId[serPos + 32 * 32] != 0) &&
-          (blockPos.y > 0 && blockId[serPos -      32] != 0) &&
-          (blockPos.y <31 && blockId[serPos +      32] != 0) &&
-          (blockPos.z > 0 && blockId[serPos -       1] != 0) &&
-          (blockPos.z <31 && blockId[serPos +       1] != 0)) )
+    int faces = 0;
+
+    faces =
+        (int(blockPos.x <= 0 || blockId[serPos - 32 * 32] == 0) << 0) +
+        (int(blockPos.y <= 0 || blockId[serPos -      32] == 0) << 1) +
+        (int(blockPos.z <= 0 || blockId[serPos -       1] == 0) << 2) +
+        (int(blockPos.x >= 31|| blockId[serPos + 32 * 32] == 0) << 3) +
+        (int(blockPos.y >= 31|| blockId[serPos +      32] == 0) << 4) +
+        (int(blockPos.z >= 31|| blockId[serPos +       1] == 0) << 5);
+
+    if(faces > 0)
     {
         uint index = atomicAdd(instanceCount, 1);
         blockPosInstance[index] = vec4(float(blockPos.x), float(blockPos.y), float(blockPos.z), 0.0f);
         blockPropInstance[index].x = (clamp(blockPos.y, 8, 24) - 8) * 2;
+        blockPropInstance[index].y = faces;
     }
 }

@@ -118,13 +118,14 @@ GLfloat cube_normals[] =
 	 0.0f, 0.0f, 1.0f,
 };
 
-static const GLfloat g_quad_vertex_buffer_data[] = {
-	-1.0f, -1.0f, 0.0f,
-	1.0f, -1.0f, 0.0f,
-	-1.0f,  1.0f, 0.0f,
-	-1.0f,  1.0f, 0.0f,
-	1.0f, -1.0f, 0.0f,
-	1.0f,  1.0f, 0.0f,
+GLfloat g_quad_vertex_buffer_data[] = 
+{
+	-1.0f, -1.0f, 0.0f, 1.0f,
+	 1.0f, -1.0f, 0.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	 1.0f, -1.0f, 0.0f, 1.0f,
+	 1.0f,  1.0f, 0.0f, 1.0f,
 };
 
 GLuint vao_cube, vbo_position, vbo_normal, vs, fs, cs, shader_programme, compute_programme;
@@ -134,13 +135,41 @@ glm::mat4 cameraRot;
 
 bool keyState[256] = {};
 bool updateEveryFrame = true;
+bool useMeshInsteadOfInstanceCube = true;
+
+//advanced pipeline will be ignored if you don't use mesh instead of instance cubes.
+bool useAdvancedRenderingPipeline = true;
+
+/*
+Performance (TITAN X - 5960X - 32GB):
+
+								Average FPS			Dispatch Time			Draw Time			Memory Cost / Chunk
+
+InstanceCube:					avg 117FPS			35.618					299.112				256KB
+InstanceCube - faceCulling:		avg 123FPS			37.025					284.200				256KB
+Compute mesh [Selected]:		avg 138FPS			87.650					52.642				3MB (12x Larger)
+								avg 124FPS with SSAO
+*/
+
+/*
+TODO List:
+
+==Hig==
+Rendering pipeline
+Chunk LOD and management
+Dynamic buffer size allocation
+
+==Low==
+rawIdToMesh shader optimization
+*/
 
 float cameraArc = 60.0f, aspectRatio = 16.0f / 9.0f, cameraNear = 0.3f, cameraFar = 1000.0f;
 float prevTime, nowTime;
+int avgFPS = 0, minFPS = 999;
 
 std::vector<blockGroup *> blockGroupList;
 
-int groupCountX = 6, groupCountZ = 6;
+int groupCountX = 10, groupCountZ = 10;
 float lambdax = 20, lambdaz = 20, ax = 5, az = 5, px = 3, pz = 12;
 
 int mousePrevX = -1, mousePrevY = -1;
@@ -149,11 +178,50 @@ float cameraRotY = 0.0f, cameraRotX = 0.0f;
 float scalarSpeed = 5.0f;
 
 //Rendering stuffs
-const int windowHeight = 1280, windowWidth = 720;
+const int windowHeight = 720, windowWidth = 1280;
 
 GLuint frameBuffer_MRT, frameBuffer_SSAO = 0;
 GLuint RT_Position, RT_Normal, RT_Color, RT_AOMap = 0;
 GLuint RT_Depth = 0;
+GLuint pipeline_MRT, pipeline_AO;
+
+void printError()
+{
+	GLenum err;
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL error: " << err << std::endl;
+	}
+}
+
+void CheckProgramLinking(char* programName, GLuint program)
+{
+	GLint isLinked = 0;
+	glGetProgramiv(program, GL_LINK_STATUS, &isLinked);
+	if (isLinked == GL_FALSE)
+	{
+		//The maxLength includes the NULL character
+		char infolog[1024];
+		glGetProgramInfoLog(program, 1024, NULL, infolog);
+
+		printf("The %s shader failed to linking with the error: %s \n", programName, infolog);
+
+		//Provide the infolog in whatever manner you deem best.
+		//Exit with failure.
+		return;
+	}
+}
+
+void CheckShaderCompiling(char* shaderName, GLuint shader)
+{
+	GLint testval = 0;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &testval);
+	if (testval == GL_FALSE)
+	{
+		char infolog[1024];
+		glGetShaderInfoLog(shader, 1024, NULL, infolog);
+		printf("The %s shader failed to compile with the error: %s \n", shaderName, infolog);
+	}
+}
 
 /* A simple function that will read a file into an allocated char pointer buffer */
 char* filetobuf(char *file)
@@ -218,19 +286,19 @@ void initGL(int *argc, char **argv)
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
 	glutInitContextVersion(4, 4);
 	glutInitContextFlags(GLUT_CORE_PROFILE | GLUT_DEBUG);
-	glutInitWindowSize(windowHeight, windowWidth);
+	glutInitWindowSize(windowWidth, windowHeight);
 	glutCreateWindow("Hello triangle!");
 
 	// start GLEW extension handler
 	glewExperimental = GL_TRUE;
 	glewInit();
 
-	setVSync(true);
+	setVSync(false);
 
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.25, 0.25, 0.25, 1.0);
 
-	glDisable(GL_CULL_FACE);
+	//glDisable(GL_CULL_FACE);
 
 	// get version info
 	const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -244,14 +312,13 @@ void initGL(int *argc, char **argv)
 
 void initBlockGroups()
 {
-
 	glUseProgram(compute_programme);
 
 	for (int x = 0; x < groupCountX; x++)
 	{
 		for (int z = 0; z < groupCountZ; z++)
 		{
-			blockGroup* grp = new blockGroup();
+			blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube);
 			grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
 			
 			grp->InitBuffers(compute_programme);
@@ -265,10 +332,15 @@ void initBlockGroups()
 //init buffers
 void initApp()
 {
+	useAdvancedRenderingPipeline &= useMeshInsteadOfInstanceCube;
+
 	//Camera position
-	cameraPos.x = 0.0f;
-	cameraPos.y = 16.0f;
-	cameraPos.z = 32.0f;
+	cameraPos.x = -8.456f;
+	cameraPos.y = 27.408f;
+	cameraPos.z = 14.361f;
+
+	cameraRotX = -0.476f;
+	cameraRotY = -1.962f;
 
 	//VAO Creation
 
@@ -294,60 +366,143 @@ void initApp()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
+	GLint testval = 0;
+
 	/*
 	Before using the shaders we have to load the strings into a GL shader, and compile them.
 	*/
-
-	const char* vertex_shader = filetobuf("simpleInstance.vert");
-	const char* fragment_shader = filetobuf("simpleInstance.frag");
-
-	vs = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vs, 1, &vertex_shader, NULL);
-	glCompileShader(vs);
-	fs = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fs, 1, &fragment_shader, NULL);
-	glCompileShader(fs);
-
-	/*
-	Now, these compiled shaders must be combined into a single, executable GPU shader programme.
-	We create an empty "program", attach the shaders, then link them together.
-	*/
-	shader_programme = glCreateProgram();
-	glAttachShader(shader_programme, fs);
-	glAttachShader(shader_programme, vs);
-	glLinkProgram(shader_programme);
-
-	GLint testval = 0;
-	glGetShaderiv(vs, GL_COMPILE_STATUS, &testval);
-	if (testval == GL_FALSE)
+	if (useAdvancedRenderingPipeline)
 	{
-		char infolog[1024];
-		glGetShaderInfoLog(vs, 1024, NULL, infolog);
-		printf("The vertex shader failed to compile with the error: %s \n", infolog);
-	}
+		////////////////////////
+		//MRT Pass
+		////////////////////////
+		const char* vertex_shader = filetobuf("simpleVert.vert");
+		const char* fragment_shader = filetobuf("simpleFrag_MRT.frag");
 
-	glGetShaderiv(fs, GL_COMPILE_STATUS, &testval);
-	if (testval == GL_FALSE)
+		vs = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vs, 1, &vertex_shader, NULL);
+		glCompileShader(vs);
+		fs = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(fs, 1, &fragment_shader, NULL);
+		glCompileShader(fs);
+
+		pipeline_MRT = glCreateProgram();
+		glAttachShader(pipeline_MRT, fs);
+		glAttachShader(pipeline_MRT, vs);
+		glLinkProgram(pipeline_MRT);
+
+		CheckShaderCompiling("MRT-Vert", vs);
+		CheckShaderCompiling("MRT-Frag", fs);
+
+		CheckProgramLinking("MRT Pass", pipeline_MRT);
+
+		glUseProgram(pipeline_MRT);
+
+		glm::vec4 colorLow = glm::vec4(1.0f, 0.356f, 0.529f, 1.0f);
+		glm::vec4 colorHigh = glm::vec4(0.356f, 1.0f, 0.635f, 1.0f);
+
+		glUniform4fv(glGetUniformLocation(pipeline_MRT, "colorLow"), 1, glm::value_ptr(colorLow));
+		glUniform4fv(glGetUniformLocation(pipeline_MRT, "colorHigh"), 1, glm::value_ptr(colorHigh));
+
+		////////////////////////
+		//AO Pass
+		////////////////////////
+		free((void *)vertex_shader);
+		free((void *)fragment_shader);
+
+		vertex_shader = filetobuf("screenQuad.vert");
+		fragment_shader = filetobuf("SSAO.frag");
+
+		vs = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vs, 1, &vertex_shader, NULL);
+		glCompileShader(vs);
+		fs = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(fs, 1, &fragment_shader, NULL);
+		glCompileShader(fs);
+
+		pipeline_AO = glCreateProgram();
+		glAttachShader(pipeline_AO, fs);
+		glAttachShader(pipeline_AO, vs);
+		glLinkProgram(pipeline_AO);
+
+		glUseProgram(pipeline_AO);
+		glUniform1i(glGetUniformLocation(pipeline_AO, "samplerPosition"), 0);
+		glUniform1i(glGetUniformLocation(pipeline_AO, "samplerNormal"), 1);
+		glUniform1i(glGetUniformLocation(pipeline_AO, "samplerColor"), 2);
+
+		CheckShaderCompiling("ScrQuad-Vert", vs);
+		CheckShaderCompiling("AO-Frag", fs);
+
+		CheckProgramLinking("AO Pass", pipeline_AO);
+
+		printError();
+	}
+	else
 	{
-		char infolog[1024];
-		glGetShaderInfoLog(fs, 1024, NULL, infolog);
-		printf("The fragment shader failed to compile with the error: %s \n", infolog);
+		if (useMeshInsteadOfInstanceCube)
+		{
+			const char* vertex_shader = filetobuf("simpleVert.vert");
+			const char* fragment_shader = filetobuf("simpleFrag.frag");
+
+			vs = glCreateShader(GL_VERTEX_SHADER);
+			glShaderSource(vs, 1, &vertex_shader, NULL);
+			glCompileShader(vs);
+			fs = glCreateShader(GL_FRAGMENT_SHADER);
+			glShaderSource(fs, 1, &fragment_shader, NULL);
+			glCompileShader(fs);
+		}
+		else
+		{
+			const char* vertex_shader = filetobuf("simpleInstance.vert");
+			const char* fragment_shader = filetobuf("simpleInstance.frag");
+
+			vs = glCreateShader(GL_VERTEX_SHADER);
+			glShaderSource(vs, 1, &vertex_shader, NULL);
+			glCompileShader(vs);
+			fs = glCreateShader(GL_FRAGMENT_SHADER);
+			glShaderSource(fs, 1, &fragment_shader, NULL);
+			glCompileShader(fs);
+		}
+
+		/*
+		Now, these compiled shaders must be combined into a single, executable GPU shader programme.
+		We create an empty "program", attach the shaders, then link them together.
+		*/
+		shader_programme = glCreateProgram();
+		glAttachShader(shader_programme, fs);
+		glAttachShader(shader_programme, vs);
+		glLinkProgram(shader_programme);
+
+		CheckShaderCompiling("Simple-Vert", vs);
+		CheckShaderCompiling("Simple-Frag", fs);
+
+		CheckProgramLinking("Simple Pass", shader_programme);
+
+		glUseProgram(shader_programme);
+
+		glm::vec4 colorLow = glm::vec4(1.0f, 0.356f, 0.529f, 1.0f);
+		glm::vec4 colorHigh = glm::vec4(0.356f, 1.0f, 0.635f, 1.0f);
+
+		glUniform4fv(glGetUniformLocation(shader_programme, "colorLow"), 1, glm::value_ptr(colorLow));
+		glUniform4fv(glGetUniformLocation(shader_programme, "colorHigh"), 1, glm::value_ptr(colorHigh));
 	}
-
-	glUseProgram(shader_programme);
-
-	glm::vec4 colorLow = glm::vec4(1.0f, 0.356f, 0.529f, 1.0f);
-	glm::vec4 colorHigh = glm::vec4(0.356f, 1.0f, 0.635f, 1.0f);
-
-	glUniform4fv(glGetUniformLocation(shader_programme, "colorLow"), 1, glm::value_ptr(colorLow));
-	glUniform4fv(glGetUniformLocation(shader_programme, "colorHigh"), 1, glm::value_ptr(colorHigh));
 
 	//==Compute shader==
 
-	const char* compute_shader = filetobuf("rawIdToCubePos.compute");
-	cs = glCreateShader(GL_COMPUTE_SHADER);
-	glShaderSource(cs, 1, &compute_shader, NULL);
-	glCompileShader(cs);
+	if (useMeshInsteadOfInstanceCube)
+	{
+		const char* compute_shader = filetobuf("rawIdToMesh.compute");
+		cs = glCreateShader(GL_COMPUTE_SHADER);
+		glShaderSource(cs, 1, &compute_shader, NULL);
+		glCompileShader(cs);
+	}
+	else
+	{
+		const char* compute_shader = filetobuf("rawIdToCubePos.compute");
+		cs = glCreateShader(GL_COMPUTE_SHADER);
+		glShaderSource(cs, 1, &compute_shader, NULL);
+		glCompileShader(cs);
+	}
 
 	compute_programme = glCreateProgram();
 	glAttachShader(compute_programme, cs);
@@ -359,21 +514,6 @@ void initApp()
 		char infolog[1024];
 		glGetShaderInfoLog(cs, 1024, NULL, infolog);
 		printf("The compute shader failed to compile with the error: %s \n", infolog);
-	}
-
-	GLint isLinked = 0;
-	glGetProgramiv(shader_programme, GL_LINK_STATUS, &isLinked);
-	if (isLinked == GL_FALSE)
-	{
-		//The maxLength includes the NULL character
-		char infolog[1024];
-		glGetProgramInfoLog(shader_programme, 1024, NULL, infolog);
-
-		printf("The vert-frag shader failed to linking with the error: %s \n", infolog);
-
-		//Provide the infolog in whatever manner you deem best.
-		//Exit with failure.
-		return;
 	}
 
 	///////////////////////////
@@ -451,6 +591,9 @@ void initApp()
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_screenQuad);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
 
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+
 	// Create and compile our GLSL program from the shaders
 	//GLuint quad_programID = LoadShaders("Passthrough.vertexshader", "SimpleTexture.fragmentshader");
 	//GLuint texID = glGetUniformLocation(quad_programID, "renderedTexture");
@@ -462,30 +605,79 @@ void initApp()
 //rendering stuff
 void render()
 {
-	/*
-	We draw in a loop. Each iteration draws the screen once;
-	a "frame" of rendering. The loop finishes if the window is closed.
-	Later we can also ask GLFW is the escape key has been pressed.
-	*/
-
-	// wipe the drawing surface clear
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glUseProgram(shader_programme);
-	glBindVertexArray(vao_cube);
-
-	//camera Pos
-	glm::mat4 view = glm::inverse(glm::translate(glm::mat4(1.0f), cameraPos) * cameraRot);
-	glm::mat4 proj = glm::perspective(cameraArc, 1.0f * aspectRatio, cameraNear, cameraFar);
-
-	glUniformMatrix4fv(glGetUniformLocation(shader_programme, "view"), 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(glGetUniformLocation(shader_programme, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
-	GLint modelUniformIndex = glGetUniformLocation(shader_programme, "model_group");
-
-	for each (auto grp in blockGroupList)
+	if (useAdvancedRenderingPipeline)
 	{
-		grp->Draw(36, 2, modelUniformIndex);
+		//MRT Pass
+		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer_MRT);
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glUseProgram(pipeline_MRT);
+
+		//camera Pos
+		glm::mat4 view = glm::inverse(glm::translate(glm::mat4(1.0f), cameraPos) * cameraRot);
+		glm::mat4 proj = glm::perspective(cameraArc, 1.0f * aspectRatio, cameraNear, cameraFar);
+
+		glUniformMatrix4fv(glGetUniformLocation(pipeline_MRT, "view"), 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(glGetUniformLocation(pipeline_MRT, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
+		GLint modelUniformIndex = glGetUniformLocation(pipeline_MRT, "model_group");
+
+		printError();
+
+		for each (auto grp in blockGroupList)
+		{
+			grp->Draw(36, 2, modelUniformIndex);
+		}
+
+		//AO Pass
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		glUseProgram(pipeline_AO);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, RT_Position);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, RT_Normal);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, RT_Color);
+
+		glBindVertexArray(vao_screenQuad);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+	}
+	else
+	{
+		/*
+		We draw in a loop. Each iteration draws the screen once;
+		a "frame" of rendering. The loop finishes if the window is closed.
+		Later we can also ask GLFW is the escape key has been pressed.
+		*/
+
+		// wipe the drawing surface clear
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glUseProgram(shader_programme);
+
+		if (!useMeshInsteadOfInstanceCube)
+		{
+			glBindVertexArray(vao_cube);
+		}
+
+		//camera Pos
+		glm::mat4 view = glm::inverse(glm::translate(glm::mat4(1.0f), cameraPos) * cameraRot);
+		glm::mat4 proj = glm::perspective(cameraArc, 1.0f * aspectRatio, cameraNear, cameraFar);
+
+		glUniformMatrix4fv(glGetUniformLocation(shader_programme, "view"), 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(glGetUniformLocation(shader_programme, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
+		GLint modelUniformIndex = glGetUniformLocation(shader_programme, "model_group");
+
+		for each (auto grp in blockGroupList)
+		{
+			grp->Draw(36, 2, modelUniformIndex);
+		}
 	}
 
 	//put the stuff we've been drawing onto the display
@@ -540,7 +732,7 @@ void update()
 
 		ax = 10.0f + 6.0f * sinf(nowTime * 4.4f);
 
-#pragma omp parallel for num_threads(8)
+#pragma omp parallel for num_threads(16)
 		for (int i = 0; i < blockGroupList.size(); i++)
 		{
 			blockGroupList.at(i)->Init_sinXsinY(
@@ -559,14 +751,23 @@ void update()
 		}
 	}
 
+	frameCount++;
+
+	int fps = (int)(1.0f / dTime);
+
+	avgFPS += fps;
+	if (minFPS > fps)
+	{
+		minFPS = fps;
+	}
+
 	if (frameCount % 60 == 0)
 	{
 		char windowTitle[50];
 		sprintf(windowTitle, "Voxel test - fps: %.2f; updateBlockId: %d ms", 1.0f / dTime, dur);
+		printf("avg: %d\tmin: %d\n", avgFPS / frameCount, minFPS);
 		glutSetWindowTitle(windowTitle);
 	}
-
-	frameCount++;
 }
 
 //clean up

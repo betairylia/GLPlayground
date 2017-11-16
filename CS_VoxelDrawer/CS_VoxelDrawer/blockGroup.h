@@ -28,7 +28,7 @@ typedef struct {
 class blockGroup
 {
 public:
-	blockGroup();
+	blockGroup(bool useMesh = false);
 	virtual ~blockGroup();
 
 	//generate data inside a blockGroup.
@@ -56,9 +56,11 @@ public:
 
 	//Buffers used for computation and drawing
 	GLuint cs_vao, blockId_ssbo, blockInstance_ssbo, blockProp_ssbo, indirectBuffer_ssbo;
+	GLuint mesh_vao, vertPos_vbo, vertNormal_vbo, vertProp_vbo;
 	//GLuint baseInstance_cube;
 	//GLuint compute_program;
 
 	bool bufferUpdated, bufferInited;
+	bool useMeshInsteadOfInstanceCube = true;
 };
 

@@ -1,0 +1,41 @@
+#version 430
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+layout(std430, binding = 0) buffer idBlock { uint blockId[]; };
+layout(std430, binding = 1) buffer instanceBlock1 { vec4 blockPosInstance[]; };
+layout(std430, binding = 2) buffer instanceBlock2 { ivec4 blockPropInstance[]; };
+layout(std430, binding = 3) buffer indirectBuffer
+{
+    uint  count;
+    uint  instanceCount;
+    uint  first;
+    uint  baseInstance;
+};
+
+int getPos(ivec3 pos)
+{
+    return pos.x * 32 * 32 + pos.y * 32 + pos.z;
+}
+
+void main()
+{
+    ivec3 blockPos = ivec3(gl_GlobalInvocationID.xyz);
+    int serPos = getPos(blockPos);
+
+    if(blockId[serPos] == 0)
+    {
+        return;
+    }
+
+    if( !((blockPos.x > 0 && blockId[serPos - 32 * 32] != 0) &&
+          (blockPos.x <31 && blockId[serPos + 32 * 32] != 0) &&
+          (blockPos.y > 0 && blockId[serPos -      32] != 0) &&
+          (blockPos.y <31 && blockId[serPos +      32] != 0) &&
+          (blockPos.z > 0 && blockId[serPos -       1] != 0) &&
+          (blockPos.z <31 && blockId[serPos +       1] != 0)) )
+    {
+        uint index = atomicAdd(instanceCount, 1);
+        blockPosInstance[index] = vec4(float(blockPos.x), float(blockPos.y), float(blockPos.z), 0.0f);
+        blockPropInstance[index].x = (clamp(blockPos.y, 8, 24) - 8) * 2;
+    }
+}
