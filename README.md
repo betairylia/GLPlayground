@@ -18,8 +18,8 @@ you may need copy the .dll s from glut/bin and glew/bin.
 
 Block Count = (10 x 10) x (32 x 32 x 32) = 320 (X) x 32 (Y) x 320 (Z)
 
-It gets ~40FPS on my Razer 2017 ( GTX1060 6GB - 7700HQ - 16GB RAM ),  
-and gets ~100FPS on my desktop in my lab ( 1 of 3x GTX TITAN X 12GB - ? - 32GB RAM ).
+It gets ~60FPS on my Razer 2017 ( GTX1060 6GB - 7700HQ - 16GB RAM ),  
+and gets ~100FPS on my desktop in my lab ( 1 of 3x GTX TITAN X 12GB - 5960X - 32GB RAM ).
 
 >Workflow:  
 CPU computes chunk data (with OpenMP),  
