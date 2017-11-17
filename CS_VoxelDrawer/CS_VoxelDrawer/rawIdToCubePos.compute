@@ -41,7 +41,7 @@ void main()
     {
         uint index = atomicAdd(instanceCount, 1);
         blockPosInstance[index] = vec4(float(blockPos.x), float(blockPos.y), float(blockPos.z), 0.0f);
-        blockPropInstance[index].x = (clamp(blockPos.y, 8, 24) - 8) * 2;
+        blockPropInstance[index].x = (clamp(blockPos.y, 4, 20) - 4) * 2;
         blockPropInstance[index].y = faces;
     }
 }

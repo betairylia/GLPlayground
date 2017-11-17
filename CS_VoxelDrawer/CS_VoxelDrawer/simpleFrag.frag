@@ -5,6 +5,7 @@ in VERTEX
     vec4 position;
     vec3 normal;
     vec4 color;
+    float fogDepth;
 } vertex;
 
 out vec4 frag_colour;

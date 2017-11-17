@@ -129,10 +129,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="blockGroup.cpp" />
+    <ClCompile Include="ChunkOctree.cpp" />
+    <ClCompile Include="ChunkOctreeNode.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="VariablePool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="blockGroup.h" />
+    <ClInclude Include="ChunkOctree.h" />
+    <ClInclude Include="ChunkOctreeNode.h" />
+    <ClInclude Include="VariablePool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

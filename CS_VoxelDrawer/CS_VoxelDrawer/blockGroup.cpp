@@ -1,15 +1,23 @@
 #include "blockGroup.h"
 
-blockGroup::blockGroup(bool useMesh)
+blockGroup::blockGroup(bool useMesh, float _scale)
 {
 	bufferUpdated = false;
 	bufferInited = false;
 
 	useMeshInsteadOfInstanceCube = useMesh;
+	scale = _scale;
 }
 
 blockGroup::~blockGroup()
 {
+	if (useMeshInsteadOfInstanceCube)
+	{
+		GLuint buf[] = {blockId_ssbo, indirectBuffer_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo};
+		glDeleteBuffers(5, buf);
+		glDeleteVertexArrays(1, &cs_vao);
+		glDeleteVertexArrays(1, &mesh_vao);
+	}
 }
 
 void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ)
@@ -24,8 +32,14 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 			{
 				//if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
 				//	y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
-				if (y < 15 + ax * (sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) *
-						(sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
+				if ((y * scale) < 
+						15 + 
+						ax * 
+						(sinf(((float)x * scale + groupPosX + px) / lambdax * 1 * 3.1415926f)) *
+						(sinf(((float)z * scale + groupPosZ + pz) / lambdaz * 1 * 3.1415926f)) +
+						0.5f * ax *
+						(sinf(((float)x * scale + groupPosX + px + 10) / lambdax * 0.5 * 3.1415926f)) *
+						(sinf(((float)z * scale + groupPosZ + pz +  5) / lambdaz * 0.5 * 3.1415926f)))
 				{
 					blockId[getPos(x, y, z)] = 1;
 				}
@@ -119,7 +133,7 @@ void blockGroup::InitBuffers(GLuint _cs)
 }
 
 //glUseProgram(...) before call this method
-void blockGroup::GenerateBuffer(bool uploadBuffers)
+void blockGroup::GenerateBuffer(bool uploadBuffers, int computeShaderScaleIndex)
 {
 	if (bufferInited)
 	{
@@ -137,6 +151,11 @@ void blockGroup::GenerateBuffer(bool uploadBuffers)
 			cmd.count = 0;
 			cmd.first = 0;
 			cmd.primCount = 1;
+
+			if (computeShaderScaleIndex >= 0)
+			{
+				glUniform1f(computeShaderScaleIndex, (1.0f / scale));
+			}
 		}
 		else
 		{
@@ -193,7 +212,6 @@ void blockGroup::GenerateBuffer(bool uploadBuffers)
 
 //glUseProgram(...) before call this method
 //glBindVertexArray(...) before call this method
-//position - normal - tangent - texCoord1&2 / color - instance
 void blockGroup::Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex)
 {
 	if (bufferInited)

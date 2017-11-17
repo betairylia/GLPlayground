@@ -14,7 +14,7 @@
 
 #include <iostream>
 
-#include "blockGroup.h"
+#include "ChunkOctree.h"
 
 GLfloat cube_positions[] = 
 {
@@ -134,11 +134,14 @@ glm::vec3 cameraPos;
 glm::mat4 cameraRot;
 
 bool keyState[256] = {};
-bool updateEveryFrame = true;
+bool updateEveryFrame = false;
 bool useMeshInsteadOfInstanceCube = true;
 
 //advanced pipeline will be ignored if you don't use mesh instead of instance cubes.
 bool useAdvancedRenderingPipeline = true;
+
+bool testLOD = false;
+bool useOctree = true;
 
 /*
 Performance (TITAN X - 5960X - 32GB):
@@ -163,22 +166,25 @@ Dynamic buffer size allocation
 rawIdToMesh shader optimization
 */
 
-float cameraArc = 60.0f, aspectRatio = 16.0f / 9.0f, cameraNear = 0.3f, cameraFar = 1000.0f;
+float cameraArc = 90.0f, aspectRatio = 16.0f / 10.0f, cameraNear = 5.0f, cameraFar = 8192.0f;
 float prevTime, nowTime;
 int avgFPS = 0, minFPS = 999;
 
 std::vector<blockGroup *> blockGroupList;
 
 int groupCountX = 10, groupCountZ = 10;
-float lambdax = 20, lambdaz = 20, ax = 5, az = 5, px = 3, pz = 12;
+float lambdax = 72, lambdaz = 64, ax = 12, az = 5, px = 3, pz = 12;
 
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
-float scalarSpeed = 5.0f;
+float scalarSpeed, spdWalk = 50.0f, spdRun = 250.0f;
+
+//Blockgroup management
+ChunkOctree chunkOctree;
 
 //Rendering stuffs
-const int windowHeight = 720, windowWidth = 1280;
+const int windowHeight = 900, windowWidth = 1440;
 
 GLuint frameBuffer_MRT, frameBuffer_SSAO = 0;
 GLuint RT_Position, RT_Normal, RT_Color, RT_AOMap = 0;
@@ -293,7 +299,7 @@ void initGL(int *argc, char **argv)
 	glewExperimental = GL_TRUE;
 	glewInit();
 
-	setVSync(false);
+	setVSync(true);
 
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.25, 0.25, 0.25, 1.0);
@@ -313,18 +319,96 @@ void initGL(int *argc, char **argv)
 void initBlockGroups()
 {
 	glUseProgram(compute_programme);
+	int loc = glGetUniformLocation(compute_programme, "scaleInv");
 
-	for (int x = 0; x < groupCountX; x++)
+	VariablePool::lambdax = lambdax;
+	VariablePool::lambdaz = lambdaz;
+	VariablePool::px = px;
+	VariablePool::pz = pz;
+	VariablePool::ax = ax;
+	VariablePool::az = az;
+
+	VariablePool::cs_ChunkMeshGeneration_ScaleIndex = loc;
+
+	if (useOctree)
 	{
-		for (int z = 0; z < groupCountZ; z++)
-		{
-			blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube);
-			grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
-			
-			grp->InitBuffers(compute_programme);
-			grp->GenerateBuffer();
+		//The octree will be initlized with Update()
+		chunkOctree.Update(cameraPos);
+	}
+	else
+	{
+		//LOD Test
 
-			blockGroupList.push_back(grp);
+		//LOD0
+		for (int x = 0; x < groupCountX; x++)
+		{
+			for (int z = 0; z < groupCountZ; z++)
+			{
+				blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 1.0f);
+				grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
+
+				grp->InitBuffers(compute_programme);
+				grp->GenerateBuffer(false, loc);
+
+				blockGroupList.push_back(grp);
+			}
+		}
+
+		if (testLOD)
+		{
+			//LOD1
+			for (int x = 0; x < 2 * groupCountX; x += 2)
+			{
+				for (int z = 0; z < 2 * groupCountZ; z += 2)
+				{
+					if (x >= 1 * groupCountX || z >= 1 * groupCountZ)
+					{
+						blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 2.0f);
+						grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
+
+						grp->InitBuffers(compute_programme);
+						grp->GenerateBuffer(false, loc);
+
+						blockGroupList.push_back(grp);
+					}
+				}
+			}
+
+			//LOD2
+			for (int x = 0; x < 4 * groupCountX; x += 4)
+			{
+				for (int z = 0; z < 4 * groupCountZ; z += 4)
+				{
+					if (x >= 2 * groupCountX || z >= 2 * groupCountZ)
+					{
+						blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 4.0f);
+						grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
+
+						grp->InitBuffers(compute_programme);
+						grp->GenerateBuffer(false, loc);
+
+						blockGroupList.push_back(grp);
+					}
+				}
+			}
+
+			//LOD3
+			for (int x = 0; x < 8 * groupCountX; x += 8)
+			{
+				for (int z = 0; z < 8 * groupCountZ; z += 8)
+				{
+					if (x >= 4 * groupCountX || z >= 4 * groupCountZ)
+					{
+						blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 8.0f);
+						grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
+
+						grp->InitBuffers(compute_programme);
+						grp->GenerateBuffer(false, loc);
+
+						blockGroupList.push_back(grp);
+					}
+				}
+			}
 		}
 	}
 }
@@ -333,6 +417,7 @@ void initBlockGroups()
 void initApp()
 {
 	useAdvancedRenderingPipeline &= useMeshInsteadOfInstanceCube;
+	useOctree &= useMeshInsteadOfInstanceCube & useAdvancedRenderingPipeline;
 
 	//Camera position
 	cameraPos.x = -8.456f;
@@ -623,9 +708,16 @@ void render()
 
 		printError();
 
-		for each (auto grp in blockGroupList)
+		if (useOctree)
 		{
-			grp->Draw(36, 2, modelUniformIndex);
+			chunkOctree.Drawall(36, 2, modelUniformIndex);
+		}
+		else
+		{
+			for each (auto grp in blockGroupList)
+			{
+				grp->Draw(36, 2, modelUniformIndex);
+			}
 		}
 
 		//AO Pass
@@ -721,33 +813,45 @@ void update()
 
 	cameraPos += (cameraRot * camMoveSpeed).xyz();
 
-	int start = glutGet(GLUT_ELAPSED_TIME);
-
-	if (updateEveryFrame)
+	if (useOctree)
 	{
 		glUseProgram(compute_programme);
+		//chunkOctree.Update(glm::vec3(cameraPos.x, 0, cameraPos.z));
+		chunkOctree.Update(cameraPos);
+	}
 
-		lambdax = 32.0f + 24.0f * sinf(nowTime * 3.0f);
-		lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
+	int start = glutGet(GLUT_ELAPSED_TIME);
+	
+	//Octree cannot update blockgroups right now.
+	if (!useOctree)
+	{
+		if (updateEveryFrame)
+		{
+			glUseProgram(compute_programme);
 
-		ax = 10.0f + 6.0f * sinf(nowTime * 4.4f);
+			lambdax = 32.0f + 24.0f * sinf(nowTime * 3.0f);
+			lambdaz = 32.0f + 10.0f * sinf(nowTime * 1.0f);
+
+			ax = 10.0f + 6.0f * sinf(nowTime * 4.4f);
 
 #pragma omp parallel for num_threads(16)
-		for (int i = 0; i < blockGroupList.size(); i++)
-		{
-			blockGroupList.at(i)->Init_sinXsinY(
-				lambdax, lambdaz, px, pz, ax, az,
-				blockGroupList.at(i)->blockGroupPos.x, blockGroupList.at(i)->blockGroupPos.z);
+			for (int i = 0; i < blockGroupList.size(); i++)
+			{
+				blockGroupList.at(i)->Init_sinXsinY(
+					lambdax, lambdaz, px, pz, ax, az,
+					blockGroupList.at(i)->blockGroupPos.x, blockGroupList.at(i)->blockGroupPos.z);
+			}
 		}
 	}
 
 	int dur = glutGet(GLUT_ELAPSED_TIME) - start;
+	int loc = glGetUniformLocation(compute_programme, "scaleInv");
 	
 	for each (auto grp in blockGroupList)
 	{
 		if (grp->bufferUpdated == false)
 		{
-			grp->GenerateBuffer(true);
+			grp->GenerateBuffer(true, loc);
 		}
 	}
 
@@ -834,11 +938,11 @@ void key(unsigned char key, int x, int y)
 
 	if (glutGetModifiers() & GLUT_ACTIVE_SHIFT)
 	{
-		scalarSpeed = 12.0f;
+		scalarSpeed = spdRun;
 	}
 	else
 	{
-		scalarSpeed = 5.0f;
+		scalarSpeed = spdWalk;
 	}
 }
 

@@ -16,7 +16,7 @@ int selAngle[8] = int[](2, 4, 3, 7, 6, 5, 0, 1);
 int selDist[8]  = int[](3, 2, 4, 7, 1, 6, 5, 0);
 float fSelAngle = 6.2831853 / sampleCount;
 float fSelDist  = 1.0 / sampleCount;
-float fScaler = 0.8;
+float fScaler = 1.0;
 float fRadius = 3.0;
 
 float rand(vec2 co)

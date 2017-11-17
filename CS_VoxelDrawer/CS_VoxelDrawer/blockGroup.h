@@ -28,15 +28,15 @@ typedef struct {
 class blockGroup
 {
 public:
-	blockGroup(bool useMesh = false);
+	blockGroup(bool useMesh = false, float _scale = 1.0f);
 	virtual ~blockGroup();
 
 	//generate data inside a blockGroup.
 	void Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ);
-	void InitBuffers(GLuint _cs);
+	void InitBuffers(GLuint _cs = 0);
 
 	//glUseProgram(...) before call this method
-	void GenerateBuffer(bool uploadBuffers = false);
+	void GenerateBuffer(bool uploadBuffers = false, int computeShaderScaleIndex = -1);
 
 	//glUseProgram(...) before call this method
 	//glBindVertexArray(...) before call this method
@@ -62,5 +62,7 @@ public:
 
 	bool bufferUpdated, bufferInited;
 	bool useMeshInsteadOfInstanceCube = true;
+
+	float scale;
 };
 
