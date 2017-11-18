@@ -14,6 +14,8 @@
 
 #include <iostream>
 
+#include <thread>
+
 #include "ChunkOctree.h"
 
 GLfloat cube_positions[] = 
@@ -140,6 +142,8 @@ bool useMeshInsteadOfInstanceCube = true;
 //advanced pipeline will be ignored if you don't use mesh instead of instance cubes.
 bool useAdvancedRenderingPipeline = true;
 
+bool useAnotherThreadForMap = false;
+
 bool testLOD = false;
 bool useOctree = true;
 
@@ -158,8 +162,8 @@ Compute mesh [Selected]:		avg 138FPS			87.650					52.642				3MB (12x Larger)
 TODO List:
 
 ==Hig==
+LOD MultiThread support
 Rendering pipeline
-Chunk LOD and management
 Dynamic buffer size allocation
 
 ==Low==
@@ -178,10 +182,14 @@ float lambdax = 72, lambdaz = 64, ax = 12, az = 5, px = 3, pz = 12;
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
-float scalarSpeed, spdWalk = 50.0f, spdRun = 250.0f;
+float scalarSpeed, spdWalk = 50.0f, spdRun = 600.0f;
 
 //Blockgroup management
-ChunkOctree chunkOctree;
+std::mutex m_mutex;
+std::condition_variable m_condVar;
+ChunkOctree chunkOctree(m_mutex, m_condVar, useAnotherThreadForMap);
+bool octreeThreadTerminate = false, calculatingChunks = false;
+int maximumComputeWorksPerFrame = 64;
 
 //Rendering stuffs
 const int windowHeight = 900, windowWidth = 1440;
@@ -190,6 +198,11 @@ GLuint frameBuffer_MRT, frameBuffer_SSAO = 0;
 GLuint RT_Position, RT_Normal, RT_Color, RT_AOMap = 0;
 GLuint RT_Depth = 0;
 GLuint pipeline_MRT, pipeline_AO;
+
+int min(int a, int b)
+{
+	return a < b ? a : b;
+}
 
 void printError()
 {
@@ -333,7 +346,12 @@ void initBlockGroups()
 	if (useOctree)
 	{
 		//The octree will be initlized with Update()
-		chunkOctree.Update(cameraPos);
+		//But the update will be compeleted in another thread now.
+		//So this is commanded out.
+		if (!useAnotherThreadForMap)
+		{
+			chunkOctree.Update(cameraPos);
+		}
 	}
 	else
 	{
@@ -684,6 +702,8 @@ void initApp()
 	//GLuint texID = glGetUniformLocation(quad_programID, "renderedTexture");
 	//GLuint timeID = glGetUniformLocation(quad_programID, "time");
 
+	chunkOctree.compute_programme = compute_programme;
+
 	initBlockGroups();
 }
 
@@ -815,9 +835,42 @@ void update()
 
 	if (useOctree)
 	{
-		glUseProgram(compute_programme);
-		//chunkOctree.Update(glm::vec3(cameraPos.x, 0, cameraPos.z));
-		chunkOctree.Update(cameraPos);
+		if (useAnotherThreadForMap)
+		{
+			glUseProgram(compute_programme);
+
+			//check if there are any work to be done
+			int len = chunkOctree.GPUworkList.size();
+
+			//printf("INFO:\tGPU Work list with Size = %d\n", len);
+
+			if (len > 0)
+			{
+				len = min(maximumComputeWorksPerFrame, len);
+
+				//Do the GPU work
+				for (int i = 0; i < len; i++)
+				{
+					chunkOctree.GPUworkList.at(i)->InitGroupMesh();
+					chunkOctree.GPUworkList.at(i)->BuildGroupMesh();
+				}
+
+				//Erase the pointers that has already been calculated.
+				chunkOctree.GPUworkList.erase(chunkOctree.GPUworkList.begin(), chunkOctree.GPUworkList.begin() + len);
+
+				//Check if there is no works
+				if (chunkOctree.GPUworkList.size() <= 0)
+				{
+					//TODO
+					//printf("INFO:\tGPU work done.\n");
+					m_condVar.notify_one();
+				}
+			}
+		}
+		else
+		{
+			chunkOctree.Update(cameraPos);
+		}
 	}
 
 	int start = glutGet(GLUT_ELAPSED_TIME);
@@ -834,7 +887,7 @@ void update()
 
 			ax = 10.0f + 6.0f * sinf(nowTime * 4.4f);
 
-#pragma omp parallel for num_threads(16)
+//#pragma omp parallel for num_threads(16)
 			for (int i = 0; i < blockGroupList.size(); i++)
 			{
 				blockGroupList.at(i)->Init_sinXsinY(
@@ -871,6 +924,19 @@ void update()
 		sprintf(windowTitle, "Voxel test - fps: %.2f; updateBlockId: %d ms", 1.0f / dTime, dur);
 		printf("avg: %d\tmin: %d\n", avgFPS / frameCount, minFPS);
 		glutSetWindowTitle(windowTitle);
+	}
+}
+
+//Octree update on another thread
+void OctreeUpdateMain()
+{
+	while (!octreeThreadTerminate)
+	{
+		if (useOctree)
+		{
+			//chunkOctree.Update(glm::vec3(cameraPos.x, 0, cameraPos.z));
+			chunkOctree.Update(cameraPos);
+		}
 	}
 }
 
@@ -985,6 +1051,13 @@ int main(int argc, char **argv)
 	initGL(&argc, argv);
 	initApp();
 
+	std::thread* octreeThread = NULL;
+
+	if (!useAnotherThreadForMap)
+	{
+		octreeThread = new std::thread(OctreeUpdateMain);
+	}
+
 	glutDisplayFunc(render);
 	glutIdleFunc(update);
 
@@ -999,6 +1072,12 @@ int main(int argc, char **argv)
 	glutCloseFunc(cleanup);
 
 	glutMainLoop();
+
+	if (!useAnotherThreadForMap)
+	{
+		octreeThreadTerminate = true;
+		octreeThread->join();
+	}
 
 	return 0;
 }

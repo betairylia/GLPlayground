@@ -13,21 +13,30 @@ ChunkOctreeNode::~ChunkOctreeNode()
 {
 }
 
-void ChunkOctreeNode::BuildGroup()
+void ChunkOctreeNode::CreateGroup()
 {
-	if (pos.y < 32.0f)
-	{
-		//TODO
-		group = new blockGroup(true, (float)scale);
-		group->Init_sinXsinY(
-			VariablePool::lambdax, VariablePool::lambdaz,
-			VariablePool::px, VariablePool::pz,
-			VariablePool::ax, VariablePool::az,
-			pos.x, pos.z);
+	//TODO
+	group = new blockGroup(true, (float)scale);
+}
 
-		group->InitBuffers();
-		group->GenerateBuffer(false, VariablePool::cs_ChunkMeshGeneration_ScaleIndex);
-	}
+void ChunkOctreeNode::BuildGroupData()
+{
+	//TODO
+	group->Init_sinXsinY(
+		VariablePool::lambdax, VariablePool::lambdaz,
+		VariablePool::px, VariablePool::pz,
+		VariablePool::ax, VariablePool::az,
+		pos.x, pos.z);
+}
+
+void ChunkOctreeNode::InitGroupMesh()
+{
+	group->InitBuffers();
+}
+
+void ChunkOctreeNode::BuildGroupMesh()
+{
+	group->GenerateBuffer(false, VariablePool::cs_ChunkMeshGeneration_ScaleIndex);
 }
 
 void ChunkOctreeNode::ClearGroup()
@@ -48,7 +57,7 @@ void ChunkOctreeNode::CleanChildResc()
 			{
 				child[i]->ClearGroup();
 			}
-			delete(child[i]);
+			delete child[i];
 			child[i] = NULL;
 		}
 	}

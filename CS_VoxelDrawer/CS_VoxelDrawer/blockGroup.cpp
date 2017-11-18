@@ -187,7 +187,7 @@ void blockGroup::GenerateBuffer(bool uploadBuffers, int computeShaderScaleIndex)
 
 		GLenum err;
 		while ((err = glGetError()) != GL_NO_ERROR) {
-			std::cout << "OpenGL error: " << err << std::endl;
+			std::cout << "OpenGL error while Generate Buffer: " << err << std::endl;
 		}
 
 		//get instance count

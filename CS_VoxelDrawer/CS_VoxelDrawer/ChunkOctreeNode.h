@@ -31,11 +31,17 @@ public:
 	ChunkOctreeNode* child[8], *next, *prev;
 	blockGroup* group;
 
-	void BuildGroup();
+	void CreateGroup();
+	void BuildGroupData();
+	void InitGroupMesh();
+	void BuildGroupMesh();
 	void ClearGroup();
 	void CleanChildResc();
 
 	ChunkOctreeNode* GetMostLeft();
 	ChunkOctreeNode* GetMostRight();
+
+	//For multi thread updating
+	bool needExpand, hadChild;
 };
 

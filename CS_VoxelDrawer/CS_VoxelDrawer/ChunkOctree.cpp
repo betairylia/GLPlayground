@@ -1,6 +1,6 @@
 #include "ChunkOctree.h"
 
-ChunkOctree::ChunkOctree()
+ChunkOctree::ChunkOctree(std::mutex& _m, std::condition_variable& _cv, bool mt) : m_mutex(_m), m_condVar(_cv), multiThread(mt)
 {
 	memset(mp_treeRoot, 0, sizeof(mp_treeRoot));
 }
@@ -20,14 +20,27 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 			if (mp_treeRoot[i][j] == NULL)
 			{
 				mp_treeRoot[i][j] = new ChunkOctreeNode(glm::vec3(i * 1024, 0, j * 1024), glm::vec3(i * 1024 + 512, 512, j * 1024 + 512), 32);
-				
+			}
+		
+			//UpdateNode(mp_treeRoot[i][j]);
+
+			PreUpdateNode(mp_treeRoot[i][j]);
+		}
+	}
+	DoWork();
+	for (int i = 0; i < mapBigChunkLenth; i++)
+	{
+		for (int j = 0; j < mapBigChunkLenth; j++)
+		{
+			if (renderList[i][j].next == NULL)
+			{
 				//List init
 				renderList[i][j].next = mp_treeRoot[i][j];
 				mp_treeRoot[i][j]->prev = &renderList[i][j];
-				mp_treeRoot[i][j]->next = NULL;	
+				mp_treeRoot[i][j]->next = NULL;
 			}
-		
-			UpdateNode(mp_treeRoot[i][j]);
+
+			PostUpdateNode(mp_treeRoot[i][j]);
 		}
 	}
 }
@@ -153,7 +166,9 @@ void ChunkOctree::UpdateNode(ChunkOctreeNode * node)
 		//Construct self data
 		if (node->group == NULL && load)
 		{
-			node->BuildGroup();
+			node->BuildGroupData();
+			node->InitGroupMesh();
+			node->BuildGroupMesh();
 		}
 
 		//Cleaning
@@ -177,3 +192,215 @@ void ChunkOctree::UpdateNode(ChunkOctreeNode * node)
 		}
 	}
 }
+
+void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
+{
+	//Should this node be expanded ? Does it has any children ?
+	bool expand = false, hasChild = false;
+
+	//Should this node be loaded and rendered ? (due to too large scale etc.)
+	bool load = true;
+
+	//The node can only expand when its scale is larger than 1.
+	if (node->scale > 1)
+	{
+		expand = false;
+		hasChild = (node->child[0] != NULL);
+
+		//calculate the destiny (?) of this node.
+		float dist = glm::distance(m_playerPos, node->centerPos);
+
+		//TODO: different load distance between different scale
+		dist /= (float)node->scale;
+
+		//Distence to expand, DIVIDED BY 2
+		float tmp_loadDist = 96.0f;
+		if (dist <= tmp_loadDist)
+		{
+			expand = true;
+		}
+
+		//Do not load chunks bigger than scale 2
+		//if (node->scale > 2)
+		//{
+		//	load = false;
+		//}
+	}
+
+	if (node->pos.y >= 32)
+	{
+		load = false;
+	}
+
+	node->needExpand = expand;
+	node->hadChild = hasChild;
+
+	//Do the operation
+	//Already expanded, nothing to do. Passing to children.
+	if (expand && hasChild)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			PreUpdateNode(node->child[i]);
+		}
+	}
+	//The node needs to be expanded.
+	else if (expand && !hasChild)
+	{
+		//Init nodes
+		for (int i = 0; i < 8; i++)
+		{
+			glm::vec3 cPos = node->pos + (float)node->scale * VariablePool::childPos[i];
+			node->child[i] = new ChunkOctreeNode(cPos, cPos + VariablePool::quarter, node->scale / 2);
+		}
+
+		//Build local list
+		for (int i = 0; i < 8; i++)
+		{
+			node->child[i]->prev = i > 0 ? node->child[i - 1] : NULL;
+			node->child[i]->next = i < 7 ? node->child[i + 1] : NULL;
+		}
+
+		//Update nodes
+		for (int i = 0; i < 8; i++)
+		{
+			//Make sure all the child node is finalized
+			//In PreUpdate: Allocation, Create local list and Register into workList.
+			PreUpdateNode(node->child[i]);
+		}
+	}
+	//The node is leaf node
+	//It may needs to be narrowed ("fall back", collapase).
+	else if (!expand)
+	{
+		//Construct self data
+		if (node->group == NULL && load)
+		{
+			workList.push_back(node);
+		}
+	}
+}
+
+void ChunkOctree::DoWork()
+{
+	int len = workList.size();
+	if (len == 0) return;
+
+	//Only CPU Part can use parallel computing.
+	for (int i = 0; i < len; i++)
+	{
+		workList.at(i)->CreateGroup();
+	}
+
+	//#pragma omp parallel for num_threads(16)
+	for (int i = 0; i < len; i++)
+	{
+		workList.at(i)->BuildGroupData();
+	}
+
+	for (int i = 0; i < len; i++)
+	{
+		GPUworkList.push_back(workList.at(i));
+	}
+	workList.clear();
+
+	if (multiThread)
+	{
+		//This is GPU Part.
+		//GPU Computation should send to the main thread to compute.
+		//Just wait for it finishes.
+
+		printf("INFO:\tWaiting for main thread...\n");
+
+		std::unique_lock<std::mutex> mlock(m_mutex);
+		m_condVar.wait(mlock, [this]() {return (GPUworkList.size() <= 0);});
+
+		printf("INFO:\tGPU Calculation finished!\n");
+
+		GPUworkList.clear();
+	}
+	else
+	{
+		glUseProgram(compute_programme);
+		for (int i = 0; i < len; i++)
+		{
+			GPUworkList.at(i)->InitGroupMesh();
+			GPUworkList.at(i)->BuildGroupMesh();
+		}
+		GPUworkList.clear();
+	}
+
+	////Clear work list
+	//workList.clear();
+}
+
+void ChunkOctree::PostUpdateNode(ChunkOctreeNode * node)
+{
+	bool expand = node->needExpand;
+	bool hasChild = node->hadChild;
+
+	//Do the operation
+	//Already expanded, nothing to do. Passing to children.
+	if (expand && hasChild)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			PostUpdateNode(node->child[i]);
+		}
+	}
+	//The node needs to be expanded.
+	else if (expand && !hasChild)
+	{
+		//Update nodes
+		for (int i = 0; i < 8; i++)
+		{
+			//Make sure all the child node is finalized
+			//In PostUpdate: finish list operations.
+			PostUpdateNode(node->child[i]);
+		}
+
+		//Since we must make sure that the render list is always aviliable,
+		//we should destroy the node after list updated.
+
+		//List update
+		ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
+		l->prev = node->prev;
+		if (node->prev != NULL)
+		{
+			node->prev->next = l;
+		}
+		r->next = node->next;
+		if (node->next != NULL)
+		{
+			node->next->prev = r;
+		}
+
+		//Self destruct
+		node->ClearGroup();
+	}
+	//The node is leaf node
+	//It may needs to be narrowed ("fall back", collapase).
+	else if (!expand)
+	{
+		//Cleaning
+		if (hasChild)
+		{
+			//List update
+			ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
+			node->prev = l->prev;
+			if (l->prev != NULL)
+			{
+				l->prev->next = node;
+			}
+			node->next = r->next;
+			if (r->next != NULL)
+			{
+				r->next->prev = node;
+			}
+
+			//Destroy children
+			node->CleanChildResc();
+		}
+	}
+}
+
