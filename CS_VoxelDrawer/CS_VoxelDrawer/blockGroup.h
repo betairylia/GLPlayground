@@ -35,6 +35,9 @@ public:
 	void Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ);
 	void InitBuffers(GLuint _cs = 0);
 
+	void FreeBuffers();
+	bool buffersFreed = false;
+
 	//glUseProgram(...) before call this method
 	void GenerateBuffer(bool uploadBuffers = false, int computeShaderScaleIndex = -1);
 

@@ -35,8 +35,8 @@ public:
 	void BuildGroupData();
 	void InitGroupMesh();
 	void BuildGroupMesh();
+	void FreeGroupBuffer();
 	void ClearGroup();
-	void CleanChildResc();
 
 	ChunkOctreeNode* GetMostLeft();
 	ChunkOctreeNode* GetMostRight();

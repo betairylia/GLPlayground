@@ -7,13 +7,31 @@
 #include <thread>
 #include <mutex>
 
-const int mapBigChunkLenth = 1;
+const int mapBigChunkLenth = 4;
 
 //TODO: Update blockGroups
 
 class ChunkOctree
 {
 public:
+
+	//isBuild:		should this chunk be builded. True = build chunk, False = destruct chunk.
+	//needDelete:	should this chunkNode be freed after destruction.
+	//node:			pointer to chunkNode.
+	//groupBak:		pointer to the blockGroup attached to the chunkNode.
+	//				N.B. node->group will be set to NULL as soon as the node was added into the destruct list,
+	//					 so we need save the pointer to the node's blockGroup inorder to clean it up.
+	//					 If we do not set node->group to NULL as soon as the node was added into the destruct list,
+	//					 the blockGroup of that node will keep cleaned up and reused while the node comes a leaf node again,
+	//					 without rebuild the group buffers.
+	typedef struct
+	{
+		bool isBuild;
+		bool needDelete;
+		ChunkOctreeNode* node;
+		blockGroup* groupBak;
+	}GPUWork;
+
 	ChunkOctree(std::mutex& _m, std::condition_variable& _cv, bool useMT);
 	virtual ~ChunkOctree();
 
@@ -26,9 +44,10 @@ public:
 	void PreUpdateNode(ChunkOctreeNode* node);
 	void DoWork();
 	void PostUpdateNode(ChunkOctreeNode* node);
+	void CleanChildResc(ChunkOctreeNode* node);
 
-	std::vector<ChunkOctreeNode*> workList;
-	std::vector<ChunkOctreeNode*> GPUworkList;
+	std::vector<GPUWork> workList;
+	std::vector<GPUWork> GPUworkList;
 	std::mutex& m_mutex;
 	std::condition_variable& m_condVar;
 

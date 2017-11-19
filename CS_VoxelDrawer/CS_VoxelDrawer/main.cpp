@@ -142,7 +142,7 @@ bool useMeshInsteadOfInstanceCube = true;
 //advanced pipeline will be ignored if you don't use mesh instead of instance cubes.
 bool useAdvancedRenderingPipeline = true;
 
-bool useAnotherThreadForMap = false;
+bool useAnotherThreadForMap = true;
 
 bool testLOD = false;
 bool useOctree = true;
@@ -182,7 +182,7 @@ float lambdax = 72, lambdaz = 64, ax = 12, az = 5, px = 3, pz = 12;
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
-float scalarSpeed, spdWalk = 50.0f, spdRun = 600.0f;
+float scalarSpeed, spdWalk = 50.0f, spdRun = 250.0f;
 
 //Blockgroup management
 std::mutex m_mutex;
@@ -851,8 +851,18 @@ void update()
 				//Do the GPU work
 				for (int i = 0; i < len; i++)
 				{
-					chunkOctree.GPUworkList.at(i)->InitGroupMesh();
-					chunkOctree.GPUworkList.at(i)->BuildGroupMesh();
+					if (chunkOctree.GPUworkList.at(i).isBuild == true)
+					{
+						chunkOctree.GPUworkList.at(i).node->InitGroupMesh();
+						chunkOctree.GPUworkList.at(i).node->BuildGroupMesh();
+					}
+					else
+					{
+						if (chunkOctree.GPUworkList.at(i).groupBak != NULL)
+						{
+							chunkOctree.GPUworkList.at(i).groupBak->FreeBuffers();
+						}
+					}
 				}
 
 				//Erase the pointers that has already been calculated.
@@ -887,7 +897,7 @@ void update()
 
 			ax = 10.0f + 6.0f * sinf(nowTime * 4.4f);
 
-//#pragma omp parallel for num_threads(16)
+#pragma omp parallel for num_threads(16)
 			for (int i = 0; i < blockGroupList.size(); i++)
 			{
 				blockGroupList.at(i)->Init_sinXsinY(
@@ -1053,7 +1063,7 @@ int main(int argc, char **argv)
 
 	std::thread* octreeThread = NULL;
 
-	if (!useAnotherThreadForMap)
+	if (useAnotherThreadForMap)
 	{
 		octreeThread = new std::thread(OctreeUpdateMain);
 	}
@@ -1073,7 +1083,7 @@ int main(int argc, char **argv)
 
 	glutMainLoop();
 
-	if (!useAnotherThreadForMap)
+	if (useAnotherThreadForMap)
 	{
 		octreeThreadTerminate = true;
 		octreeThread->join();

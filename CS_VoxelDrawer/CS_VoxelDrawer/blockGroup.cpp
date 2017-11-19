@@ -11,12 +11,9 @@ blockGroup::blockGroup(bool useMesh, float _scale)
 
 blockGroup::~blockGroup()
 {
-	if (useMeshInsteadOfInstanceCube)
+	if (buffersFreed == false)
 	{
-		GLuint buf[] = {blockId_ssbo, indirectBuffer_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo};
-		glDeleteBuffers(5, buf);
-		glDeleteVertexArrays(1, &cs_vao);
-		glDeleteVertexArrays(1, &mesh_vao);
+		printf("Buffers are not freed before dtor!\n");
 	}
 }
 
@@ -130,6 +127,19 @@ void blockGroup::InitBuffers(GLuint _cs)
 	}
 
 	bufferInited = true;
+}
+
+void blockGroup::FreeBuffers()
+{
+	if (useMeshInsteadOfInstanceCube)
+	{
+		GLuint buf[] = { blockId_ssbo, indirectBuffer_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo };
+		glDeleteBuffers(5, buf);
+		glDeleteVertexArrays(1, &cs_vao);
+		glDeleteVertexArrays(1, &mesh_vao);
+	}
+
+	buffersFreed = true;
 }
 
 //glUseProgram(...) before call this method

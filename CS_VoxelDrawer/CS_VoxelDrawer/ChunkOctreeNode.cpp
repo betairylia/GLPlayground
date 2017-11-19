@@ -39,28 +39,19 @@ void ChunkOctreeNode::BuildGroupMesh()
 	group->GenerateBuffer(false, VariablePool::cs_ChunkMeshGeneration_ScaleIndex);
 }
 
+void ChunkOctreeNode::FreeGroupBuffer()
+{
+	if (group != NULL)
+	{
+		group->FreeBuffers();
+	}
+}
+
 void ChunkOctreeNode::ClearGroup()
 {
 	//TODO
-	delete(group);
+	delete group;
 	group = NULL;
-}
-
-void ChunkOctreeNode::CleanChildResc()
-{
-	if (child[0] != NULL)
-	{
-		for (int i = 0; i < 8; i++)
-		{
-			child[i]->CleanChildResc();
-			if (child[i]->group != NULL)
-			{
-				child[i]->ClearGroup();
-			}
-			delete child[i];
-			child[i] = NULL;
-		}
-	}
 }
 
 ChunkOctreeNode * ChunkOctreeNode::GetMostLeft()
