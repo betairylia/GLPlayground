@@ -30,6 +30,12 @@
     <ClCompile Include="VariablePool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TextDrawer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ToolBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="blockGroup.h">
@@ -42,6 +48,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="VariablePool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TextDrawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ToolBox.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

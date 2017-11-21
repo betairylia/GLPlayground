@@ -1,8 +1,8 @@
 #pragma once
 
-#include <glm.hpp>
-#include <gtc/type_ptr.hpp>
-#include <gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 //Used to transfer variables between classes.
 //UGLY.
@@ -14,4 +14,6 @@ public:
 
 	static glm::vec3 childPos[8];
 	static glm::vec3 quarter;
+
+	static int allocatedGroupCount, allocatedGPUGroupCount, LODCount[10];
 };

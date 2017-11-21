@@ -70,6 +70,11 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 //glBindVertexArray(...) before call this method
 void ChunkOctree::Drawall(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex)
 {
+	for (int i = 0; i < 10; i++)
+	{
+		VariablePool::LODCount[i] = 0;
+	}
+
 	for (int i = 0; i < mapBigChunkLenth; i++)
 	{
 		for (int j = 0; j < mapBigChunkLenth; j++)
@@ -86,6 +91,11 @@ void ChunkOctree::Drawall(int vertCount, int instanceAttribIndex, GLint modelMat
 				if (pRender->group != NULL)
 				{
 					//printf("Drawing: %d\t%d\t%d\tx%d\n", (int)pRender->pos.x, (int)pRender->pos.y, (int)pRender->pos.z, pRender->scale);
+					//Debug Text
+					int id = 0, tmp = pRender->scale >> 1;
+					while (tmp > 0) { tmp >>= 1; id++; }
+					VariablePool::LODCount[id]++;
+
 					pRender->group->Draw(vertCount, instanceAttribIndex, modelMatrixUniformIndex);
 				}
 				pRender = pRender->next;
@@ -115,20 +125,20 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 		dist /= (float)node->scale;
 
 		//Distence to expand, DIVIDED BY 2
-		float tmp_loadDist = 96.0f;
+		float tmp_loadDist = 128.0f;
 		if (dist <= tmp_loadDist)
 		{
 			expand = true;
 		}
 
 		//Do not load chunks bigger than scale 2
-		//if (node->scale > 2)
-		//{
-		//	load = false;
-		//}
+		/*if (node->scale > 2)
+		{
+			load = false;
+		}*/
 	}
 
-	if (node->pos.y >= 32)
+	if (node->pos.y > 32)
 	{
 		load = false;
 	}

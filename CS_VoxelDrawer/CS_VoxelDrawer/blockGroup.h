@@ -1,16 +1,16 @@
 #pragma once
 
 #include <GL/glew.h>
-#define GLFW_DLL
-#include <GLFW/glfw3.h>
 #include <gl/freeglut.h>
 
-#include <glm.hpp>
-#include <gtc/type_ptr.hpp>
-#include <gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <cstdio>
 #include <iostream>
+
+#include "VariablePool.h"
 
 typedef  struct {
 	GLuint  count;
@@ -32,7 +32,7 @@ public:
 	virtual ~blockGroup();
 
 	//generate data inside a blockGroup.
-	void Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ);
+	void Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ, float groupPosY = 0.0f);
 	void InitBuffers(GLuint _cs = 0);
 
 	void FreeBuffers();

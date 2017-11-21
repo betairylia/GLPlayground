@@ -7,6 +7,8 @@ blockGroup::blockGroup(bool useMesh, float _scale)
 
 	useMeshInsteadOfInstanceCube = useMesh;
 	scale = _scale;
+
+	VariablePool::allocatedGroupCount++;
 }
 
 blockGroup::~blockGroup()
@@ -15,9 +17,11 @@ blockGroup::~blockGroup()
 	{
 		printf("Buffers are not freed before dtor!\n");
 	}
+
+	VariablePool::allocatedGroupCount--;
 }
 
-void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ)
+void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ, float groupPosY)
 {
 	memset(blockId, 0, sizeof(blockId));
 
@@ -29,7 +33,8 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 			{
 				//if (y < (15 + ax * sinf(((float)x + groupPosX + px) / lambdax * 2 * 3.1415926f)) && 
 				//	y < (15 + az * sinf(((float)z + groupPosZ + pz) / lambdaz * 2 * 3.1415926f)))
-				if ((y * scale) < 
+
+				if ((groupPosY + (y * scale)) < 
 						15 + 
 						ax * 
 						(sinf(((float)x * scale + groupPosX + px) / lambdax * 1 * 3.1415926f)) *
@@ -49,7 +54,7 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 	}
 
 	blockGroupPos.x = groupPosX;
-	blockGroupPos.y = 0;
+	blockGroupPos.y = groupPosY;
 	blockGroupPos.z = groupPosZ;
 
 	bufferUpdated = false;
@@ -127,6 +132,8 @@ void blockGroup::InitBuffers(GLuint _cs)
 	}
 
 	bufferInited = true;
+
+	VariablePool::allocatedGPUGroupCount++;
 }
 
 void blockGroup::FreeBuffers()
@@ -140,6 +147,8 @@ void blockGroup::FreeBuffers()
 	}
 
 	buffersFreed = true;
+
+	VariablePool::allocatedGPUGroupCount--;
 }
 
 //glUseProgram(...) before call this method

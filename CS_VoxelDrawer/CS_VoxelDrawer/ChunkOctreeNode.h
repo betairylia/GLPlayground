@@ -1,13 +1,11 @@
 #pragma once
 
 #include <GL/glew.h>
-#define GLFW_DLL
-#include <GLFW/glfw3.h>
 #include <gl/freeglut.h>
 
-#include <glm.hpp>
-#include <gtc/type_ptr.hpp>
-#include <gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <cstdio>
 #include <iostream>
@@ -42,6 +40,6 @@ public:
 	ChunkOctreeNode* GetMostRight();
 
 	//For multi thread updating
-	bool needExpand, hadChild;
+	bool needExpand, hadChild, isReady, groupReady;
 };
 

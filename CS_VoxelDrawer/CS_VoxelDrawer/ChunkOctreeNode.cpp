@@ -26,7 +26,7 @@ void ChunkOctreeNode::BuildGroupData()
 		VariablePool::lambdax, VariablePool::lambdaz,
 		VariablePool::px, VariablePool::pz,
 		VariablePool::ax, VariablePool::az,
-		pos.x, pos.z);
+		pos.x, pos.z, pos.y);
 }
 
 void ChunkOctreeNode::InitGroupMesh()
@@ -37,6 +37,8 @@ void ChunkOctreeNode::InitGroupMesh()
 void ChunkOctreeNode::BuildGroupMesh()
 {
 	group->GenerateBuffer(false, VariablePool::cs_ChunkMeshGeneration_ScaleIndex);
+
+	groupReady = true;
 }
 
 void ChunkOctreeNode::FreeGroupBuffer()

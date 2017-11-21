@@ -34,8 +34,11 @@ void main()
     vertex.normal = mat3(model_group) * normal.xyz;
     /*vertex.color = colorLow * (float(32-blockProp.x) / 32.0f) + colorHigh * (float(blockProp.x) / 32.0f);*/
 
+    /*vertex.color = colorHigh;*/
+
     /*Show LODs*/
-    float colorMixture = (float(blockProp.x) / 32.0f);
+    /*float colorMixture = (float(blockProp.x) / 32.0f);*/
+    float colorMixture = 1.0f;
 
     if(position.w > 0.75f)
     {

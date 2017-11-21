@@ -1,22 +1,22 @@
 #define _CRT_SECURE_NO_WARNINGS
-#define GLM_SWIZZLE
 
 #include <GL/glew.h>
-#define GLFW_DLL
-#include <GLFW/glfw3.h>
 #include <gl/freeglut.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
-
-#include <gtc/matrix_transform.hpp>
-#include <gtx/euler_angles.hpp>
 
 #include <iostream>
 
 #include <thread>
 
 #include "ChunkOctree.h"
+#include "TextDrawer.h"
 
 GLfloat cube_positions[] = 
 {
@@ -162,34 +162,38 @@ Compute mesh [Selected]:		avg 138FPS			87.650					52.642				3MB (12x Larger)
 TODO List:
 
 ==Hig==
-LOD MultiThread support
+LOD File I/O
+World generator
 Rendering pipeline
-Dynamic buffer size allocation
 
 ==Low==
 rawIdToMesh shader optimization
+Dynamic buffer size allocation
 */
 
-float cameraArc = 90.0f, aspectRatio = 16.0f / 10.0f, cameraNear = 5.0f, cameraFar = 8192.0f;
+float cameraArc = 1.047f, aspectRatio = 16.0f / 10.0f, cameraNear = 1.0f, cameraFar = 8192.0f;
 float prevTime, nowTime;
-int avgFPS = 0, minFPS = 999;
+int avgFPS = 0, minFPS = 999, currentFPS = 0;
+int frameCount = 0;
 
 std::vector<blockGroup *> blockGroupList;
 
-int groupCountX = 10, groupCountZ = 10;
-float lambdax = 72, lambdaz = 64, ax = 12, az = 5, px = 3, pz = 12;
+int groupCountX = 10, groupCountZ = 10;	
+float lambdax = 72, lambdaz = 64, ax = 24, az = 5, px = 3, pz = 12;
 
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
-float scalarSpeed, spdWalk = 50.0f, spdRun = 250.0f;
+float scalarSpeed, spdWalk = 50.0f, spdRun = 200.0f;
 
 //Blockgroup management
 std::mutex m_mutex;
 std::condition_variable m_condVar;
 ChunkOctree chunkOctree(m_mutex, m_condVar, useAnotherThreadForMap);
 bool octreeThreadTerminate = false, calculatingChunks = false;
-int maximumComputeWorksPerFrame = 64;
+int maximumComputeWorksPerFrame = 128, maximumWorkTimeMs = 8;
+
+int workListLenth;
 
 //Rendering stuffs
 const int windowHeight = 900, windowWidth = 1440;
@@ -199,9 +203,17 @@ GLuint RT_Position, RT_Normal, RT_Color, RT_AOMap = 0;
 GLuint RT_Depth = 0;
 GLuint pipeline_MRT, pipeline_AO;
 
+//Text drawer
+TextDrawer textDrawer;
+
 int min(int a, int b)
 {
 	return a < b ? a : b;
+}
+
+int max(int a, int b)
+{
+	return a > b ? a : b;
 }
 
 void printError()
@@ -356,78 +368,7 @@ void initBlockGroups()
 	else
 	{
 		//LOD Test
-
-		//LOD0
-		for (int x = 0; x < groupCountX; x++)
-		{
-			for (int z = 0; z < groupCountZ; z++)
-			{
-				blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 1.0f);
-				grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
-
-				grp->InitBuffers(compute_programme);
-				grp->GenerateBuffer(false, loc);
-
-				blockGroupList.push_back(grp);
-			}
-		}
-
-		if (testLOD)
-		{
-			//LOD1
-			for (int x = 0; x < 2 * groupCountX; x += 2)
-			{
-				for (int z = 0; z < 2 * groupCountZ; z += 2)
-				{
-					if (x >= 1 * groupCountX || z >= 1 * groupCountZ)
-					{
-						blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 2.0f);
-						grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
-
-						grp->InitBuffers(compute_programme);
-						grp->GenerateBuffer(false, loc);
-
-						blockGroupList.push_back(grp);
-					}
-				}
-			}
-
-			//LOD2
-			for (int x = 0; x < 4 * groupCountX; x += 4)
-			{
-				for (int z = 0; z < 4 * groupCountZ; z += 4)
-				{
-					if (x >= 2 * groupCountX || z >= 2 * groupCountZ)
-					{
-						blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 4.0f);
-						grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
-
-						grp->InitBuffers(compute_programme);
-						grp->GenerateBuffer(false, loc);
-
-						blockGroupList.push_back(grp);
-					}
-				}
-			}
-
-			//LOD3
-			for (int x = 0; x < 8 * groupCountX; x += 8)
-			{
-				for (int z = 0; z < 8 * groupCountZ; z += 8)
-				{
-					if (x >= 4 * groupCountX || z >= 4 * groupCountZ)
-					{
-						blockGroup* grp = new blockGroup(useMeshInsteadOfInstanceCube, 8.0f);
-						grp->Init_sinXsinY(lambdax, lambdaz, px, pz, ax, az, x * 32.0f, z * 32.0f);
-
-						grp->InitBuffers(compute_programme);
-						grp->GenerateBuffer(false, loc);
-
-						blockGroupList.push_back(grp);
-					}
-				}
-			}
-		}
+		//Nothing here now.
 	}
 }
 
@@ -687,6 +628,7 @@ void initApp()
 	}
 
 	//The screen quad
+	ToolBox::printError();
 	glGenVertexArrays(1, &vao_screenQuad);
 	glBindVertexArray(vao_screenQuad);
 
@@ -703,8 +645,12 @@ void initApp()
 	//GLuint timeID = glGetUniformLocation(quad_programID, "time");
 
 	chunkOctree.compute_programme = compute_programme;
+	ToolBox::printError();
 
 	initBlockGroups();
+	ToolBox::printError();
+
+	textDrawer.initText2D("./LucidaSansTypewriter.dds");
 }
 
 //rendering stuff
@@ -715,6 +661,7 @@ void render()
 		//MRT Pass
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer_MRT);
 
+		glEnable(GL_DEPTH_TEST);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glUseProgram(pipeline_MRT);
 
@@ -742,7 +689,8 @@ void render()
 
 		//AO Pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_DEPTH_TEST);
 		
 		glUseProgram(pipeline_AO);
 
@@ -758,6 +706,37 @@ void render()
 		glBindVertexArray(vao_screenQuad);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		//Draw some text
+		char tmpstr[256];
+		
+		sprintf(tmpstr, "FPS      : %d", currentFPS);
+		textDrawer.printText2D(tmpstr, 0, 900 - 16, 16, 8);
+
+		sprintf(tmpstr, "workList : %d", workListLenth);
+		textDrawer.printText2D(tmpstr, 0, 900 - 32, 16, 8);
+
+		sprintf(tmpstr, "Allocated: %d", VariablePool::allocatedGroupCount);
+		textDrawer.printText2D(tmpstr, 0, 900 - 48, 16, 8);
+
+		sprintf(tmpstr, "AllocGPU : %d", VariablePool::allocatedGPUGroupCount);
+		textDrawer.printText2D(tmpstr, 0, 900 - 64, 16, 8);
+
+		sprintf(tmpstr, "         = %d MBytes", VariablePool::allocatedGPUGroupCount * 3);
+		textDrawer.printText2D(tmpstr, 0, 900 - 80, 16, 8);
+
+		int tmp = 0;
+
+		for (int i = 0; i < 6; i++)
+		{
+			sprintf(tmpstr, "LOD%d     : %d", i, VariablePool::LODCount[i]);
+			textDrawer.printText2D(tmpstr, 0, 900 - 96 - (16 * i), 16, 8);
+
+			tmp += VariablePool::LODCount[i];
+		}
+
+		sprintf(tmpstr, "LOD Total: %d", tmp);
+		textDrawer.printText2D(tmpstr, 0, 900 - 96 - (16 * 6), 16, 8);
 	}
 	else
 	{
@@ -797,8 +776,6 @@ void render()
 	glutPostRedisplay();
 }
 
-int frameCount = 0;
-
 //update
 void update()
 {
@@ -831,50 +808,53 @@ void update()
 	camMoveSpeed.y += (float)(keyState['q'] - keyState['e']) * scalarSpeed * dTime;
 	camMoveSpeed.w = 1.0f;
 
-	cameraPos += (cameraRot * camMoveSpeed).xyz();
+	cameraPos += glm::vec3(cameraRot * camMoveSpeed);
 
 	if (useOctree)
 	{
+		int start = glutGet(GLUT_ELAPSED_TIME);
 		if (useAnotherThreadForMap)
 		{
 			glUseProgram(compute_programme);
 
 			//check if there are any work to be done
 			int len = chunkOctree.GPUworkList.size();
+			workListLenth = len;
 
 			//printf("INFO:\tGPU Work list with Size = %d\n", len);
 
-			if (len > 0)
+			//Do the GPU work
+			int i;
+			for (i = 0; i < len; i++)
 			{
-				len = min(maximumComputeWorksPerFrame, len);
-
-				//Do the GPU work
-				for (int i = 0; i < len; i++)
+				if (i % 8 == 0 && glutGet(GLUT_ELAPSED_TIME) - start > maximumWorkTimeMs)
 				{
-					if (chunkOctree.GPUworkList.at(i).isBuild == true)
+					break;
+				}
+				if (chunkOctree.GPUworkList.at(i).isBuild == true)
+				{
+					chunkOctree.GPUworkList.at(i).node->InitGroupMesh();
+					chunkOctree.GPUworkList.at(i).node->BuildGroupMesh();
+				}
+				else
+				{
+					if (chunkOctree.GPUworkList.at(i).groupBak != NULL)
 					{
-						chunkOctree.GPUworkList.at(i).node->InitGroupMesh();
-						chunkOctree.GPUworkList.at(i).node->BuildGroupMesh();
-					}
-					else
-					{
-						if (chunkOctree.GPUworkList.at(i).groupBak != NULL)
-						{
-							chunkOctree.GPUworkList.at(i).groupBak->FreeBuffers();
-						}
+						chunkOctree.GPUworkList.at(i).groupBak->FreeBuffers();
 					}
 				}
+			}
 
-				//Erase the pointers that has already been calculated.
-				chunkOctree.GPUworkList.erase(chunkOctree.GPUworkList.begin(), chunkOctree.GPUworkList.begin() + len);
+			len = i;
+			//Erase the pointers that has already been calculated.
+			chunkOctree.GPUworkList.erase(chunkOctree.GPUworkList.begin(), chunkOctree.GPUworkList.begin() + len);
 
-				//Check if there is no works
-				if (chunkOctree.GPUworkList.size() <= 0)
-				{
-					//TODO
-					//printf("INFO:\tGPU work done.\n");
-					m_condVar.notify_one();
-				}
+			//Check if there is no works
+			if (chunkOctree.GPUworkList.size() <= 0)
+			{
+				//TODO
+				//printf("INFO:\tGPU work done.\n");
+				m_condVar.notify_one();
 			}
 		}
 		else
@@ -920,12 +900,12 @@ void update()
 
 	frameCount++;
 
-	int fps = (int)(1.0f / dTime);
+	currentFPS = (int)(1.0f / dTime);
 
-	avgFPS += fps;
-	if (minFPS > fps)
+	avgFPS += currentFPS;
+	if (minFPS > currentFPS)
 	{
-		minFPS = fps;
+		minFPS = currentFPS;
 	}
 
 	if (frameCount % 60 == 0)
@@ -1059,6 +1039,7 @@ void special(int k, int x, int y)
 int main(int argc, char **argv)
 {
 	initGL(&argc, argv);
+	ToolBox::printError();
 	initApp();
 
 	std::thread* octreeThread = NULL;

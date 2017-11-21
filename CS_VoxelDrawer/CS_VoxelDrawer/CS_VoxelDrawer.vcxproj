@@ -69,10 +69,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\glew\include;$(ProjectDir)..\..\glfw\include;$(ProjectDir)..\..\glut\include;$(ProjectDir)..\..\glm;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)..\..\glew\include;$(ProjectDir)..\..\glfw\include;$(ProjectDir)..\..\glut\include;$(ProjectDir)..\..\glm;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -87,6 +87,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <OpenMPSupport>true</OpenMPSupport>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\glew\include;$(ProjectDir)..\..\glfw\include;$(ProjectDir)..\..\glut\include;$(ProjectDir)..\..\gli;$(ProjectDir)..\..\gli\external\glm</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\glew\lib\Release\x64;$(ProjectDir)..\..\glfw\lib\;$(ProjectDir)..\..\glut\lib\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -119,6 +120,7 @@
       </FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>
       </EnableFiberSafeOptimizations>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\glew\include;$(ProjectDir)..\..\glfw\include;$(ProjectDir)..\..\glut\include;$(ProjectDir)..\..\gli;$(ProjectDir)..\..\gli\external\glm</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -132,12 +134,16 @@
     <ClCompile Include="ChunkOctree.cpp" />
     <ClCompile Include="ChunkOctreeNode.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="TextDrawer.cpp" />
+    <ClCompile Include="ToolBox.cpp" />
     <ClCompile Include="VariablePool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="blockGroup.h" />
     <ClInclude Include="ChunkOctree.h" />
     <ClInclude Include="ChunkOctreeNode.h" />
+    <ClInclude Include="TextDrawer.h" />
+    <ClInclude Include="ToolBox.h" />
     <ClInclude Include="VariablePool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
