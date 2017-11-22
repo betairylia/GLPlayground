@@ -19,7 +19,7 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 		{
 			if (mp_treeRoot[i][j] == NULL)
 			{
-				mp_treeRoot[i][j] = new ChunkOctreeNode(glm::vec3(i * 1024, 0, j * 1024), glm::vec3(i * 1024 + 512, 512, j * 1024 + 512), 32);
+				mp_treeRoot[i][j] = new ChunkOctreeNode(glm::vec3(i * 1024, 0, j * 1024), glm::vec3(i * 1024 + 512, 512, j * 1024 + 512), 32, NULL, 0);
 			}
 
 			if (renderList[i][j].next == NULL)
@@ -43,27 +43,7 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 			PostUpdateNode(mp_treeRoot[i][j]);
 		}
 	}
-	//for (int i = 0; i < mapBigChunkLenth; i++)
-	//{
-	//	for (int j = 0; j < mapBigChunkLenth; j++)
-	//	{
-	//		if (mp_treeRoot[i][j] == NULL)
-	//		{
-	//			mp_treeRoot[i][j] = new ChunkOctreeNode(glm::vec3(i * 1024, 0, j * 1024), glm::vec3(i * 1024 + 512, 512, j * 1024 + 512), 32);
-
-	//			//List init
-	//			renderList[i][j].next = mp_treeRoot[i][j];
-	//			mp_treeRoot[i][j]->prev = &renderList[i][j];
-	//			mp_treeRoot[i][j]->next = NULL;
-	//		}
-
-	//		//UpdateNode(mp_treeRoot[i][j]);
-
-	//		PreUpdateNode(mp_treeRoot[i][j]);
-	//		DoWork();
-	//		PostUpdateNode(mp_treeRoot[i][j]);
-	//	}
-	//}
+	DoWork();
 }
 
 //glUseProgram(...) before call this method
@@ -88,7 +68,7 @@ void ChunkOctree::Drawall(int vertCount, int instanceAttribIndex, GLint modelMat
 			{
 				//printf("Drawing: %d\t%d\t%d\tx%d\n", (int)pRender->pos.x, (int)pRender->pos.y, (int)pRender->pos.z, pRender->scale);
 				//Simply draw them all
-				if (pRender->groupReady == true && pRender->group != NULL)
+				if (pRender->isReady == true && pRender->group != NULL)
 				{
 					//printf("Drawing: %d\t%d\t%d\tx%d\n", (int)pRender->pos.x, (int)pRender->pos.y, (int)pRender->pos.z, pRender->scale);
 					//Debug Text
@@ -155,53 +135,25 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 			PreUpdateNode(node->child[i]);
 		}
 	}
-	//The node needs to be expanded.
+	//The node needs to be expanded and recreate children.
+	//And it MUST be a leaf node since the update process before.
 	else if (expand && !hasChild)
 	{
-		bool init[8] = {}, initGroup[8] = {};
+		node->childVisible = true;
+		node->isReady = false;
 
 		//Init nodes
 		for (int i = 0; i < 8; i++)
 		{
-			if (node->child[i] == NULL)
-			{
-				glm::vec3 cPos = node->pos + (float)node->scale * VariablePool::childPos[i];
-				node->child[i] = new ChunkOctreeNode(cPos, cPos + VariablePool::quarter, node->scale / 2);
-
-				init[i] = true;
-				initGroup[i] = true;
-			}
-			else if(node->child[i]->groupReady == false)
-			{
-				initGroup[i] = true;
-			}
-			else
-			{
-				//Save this NODE!!!!
-				//It is no longer a rubbish.
-				node->child[i]->OutList(workList, false);
-			}
+			glm::vec3 cPos = node->pos + (float)node->scale * VariablePool::childPos[i];
+			node->child[i] = new ChunkOctreeNode(cPos, cPos + VariablePool::quarter, node->scale / 2, node, i);
 		}
 
 		//Build local list
 		for (int i = 0; i < 8; i++)
 		{
-			if (init[i])
-			{
-				node->child[i]->prev = i > 0 ? node->child[i - 1] : NULL;
-				node->child[i]->next = i < 7 ? node->child[i + 1] : NULL;
-			}
-			else
-			{
-				if (i > 0 && init[i - 1])
-				{
-					node->child[i]->prev = i > 0 ? node->child[i - 1] : NULL;
-				}
-				if (i < 7 && init[i + 1])
-				{
-					node->child[i]->next = i < 7 ? node->child[i + 1] : NULL;
-				}
-			}
+			node->child[i]->prev = i > 0 ? node->child[i - 1] : NULL;
+			node->child[i]->next = i < 7 ? node->child[i + 1] : NULL;
 		}
 
 		//Update nodes
@@ -211,36 +163,22 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 			//In PreUpdate: Allocation, Create local list and Register into workList.
 			PreUpdateNode(node->child[i]);
 		}
-
-		//If this node is not ready, then update the list now.
-		if (node->groupReady == false)
-		{
-			//List update
-			ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
-			l->prev = node->prev;
-			if (node->prev != NULL)
-			{
-				node->prev->next = l;
-			}
-			r->next = node->next;
-			if (node->next != NULL)
-			{
-				node->next->prev = r;
-			}
-
-			//Self destruct
-			//TODO: Solve that situation: this node is in the build list.
-			node->InList(workList, false, false);
-		}
 	}
 	//The node is leaf node
 	//It may needs to be narrowed ("fall back", collapase).
 	else if (!expand)
 	{
 		//TODO: collect if the group has not been destroyed
+		//If it has any child, it should be narrowed and reconstructed.
+		if (hasChild)
+		{
+			node->isReady = false;
+			StopChildLoading(node);
+			node->childVisible = false;
+		}
 
 		//Construct self data
-		if (node->group == NULL)
+		if (node->isReady == false)
 		{
 			if (load)
 			{
@@ -252,12 +190,121 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 			}
 		}
 	}
+
+	node->isReadyPrev = node->isReady;
+}
+
+bool ChunkOctree::PostUpdateNode(ChunkOctreeNode * node)
+{
+	bool expand = node->needExpand;
+	bool hasChild = node->hadChild;
+	bool readyBefore = node->isReadyPrev;
+
+	//The node is not a leaf.
+	if (expand)
+	{
+		//Update ready state
+		node->isReady = true;
+		for (int i = 0; i < 8; i++)
+		{
+			node->isReady &= PostUpdateNode(node->child[i]);
+		}
+
+		//Only update if this node is ready.
+		if (node->isReady)
+		{
+			//If this node become ready in this update, then we need update its children.
+			if (!readyBefore)
+			{
+				//List update
+				ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
+				l->prev = node->prev;
+				if (node->prev != NULL)
+				{
+					node->prev->next = l;
+				}
+				r->next = node->next;
+				if (node->next != NULL)
+				{
+					node->next->prev = r;
+				}
+
+				//Self destruct
+				if (node->group != NULL)
+				{
+					node->InList(workList, false, false);
+				}
+			}
+
+			//Tell others that this node is ready.
+			return true;
+		}
+	}
+	//The node is leaf node
+	//It may needs to be narrowed ("fall back", collapase).
+	else
+	{
+		if (node->isReady)
+		{
+			//Cleaning
+			if (!readyBefore)
+			{
+				//List update
+				ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
+				node->prev = l->prev;
+				if (l->prev != NULL)
+				{
+					l->prev->next = node;
+				}
+				node->next = r->next;
+				if (r->next != NULL)
+				{
+					r->next->prev = node;
+				}
+
+				//Destroy children
+				CleanChildResc(node);
+			}
+
+			//Tell others this node is ready.
+			return true;
+		}
+	}
+
+	//This node is not ready.
+	return false;
+}
+
+void ChunkOctree::CleanChildResc(ChunkOctreeNode * node)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		if (node->child[i] != NULL)
+		{
+			CleanChildResc(node->child[i]);
+			node->child[i]->InList(workList, false, true);
+		}
+	}
+	//TODO: Reusing
+	node->childVisible = false;
+}
+
+void ChunkOctree::StopChildLoading(ChunkOctreeNode * node)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		if (node->child[i] != NULL)
+		{
+			StopChildLoading(node->child[i]);
+			node->child[i]->OutList(workList, true);
+		}
+	}
 }
 
 void ChunkOctree::DoWork()
 {
-	int len = workList.size() > 128 ? 128 : workList.size();
-	//int len = workList.size();
+	//int len = workList.size() > 64 ? 64 : workList.size();
+	int len = workList.size();
 	if (len == 0) return;
 
 	//Only CPU Part can use parallel computing.
@@ -267,10 +314,10 @@ void ChunkOctree::DoWork()
 		{
 			workList.at(i).node->CreateGroup();
 		}
-		else
-		{
-			workList.at(i).node->groupReady = false;
-		}
+		//else
+		//{
+		//	workList.at(i).node->isReady = false;
+		//}
 	}
 
 #pragma omp parallel for num_threads(16)
@@ -329,6 +376,7 @@ void ChunkOctree::DoWork()
 		{
 			delete workList.at(i).groupBak;
 			workList.at(i).node->inListDestroy = false;
+			workList.at(i).node->isReady = false;
 
 			if (workList.at(i).needDelete == true)
 			{
@@ -338,103 +386,14 @@ void ChunkOctree::DoWork()
 		else
 		{
 			workList.at(i).node->inListBuild = false;
+
+			workList.at(i).node->isReady = true;
+			//workList.at(i).node->groupReady = true;
 		}
 	}
 
 	//Clear work list of lenth = len.
 	workList.erase(workList.begin(), workList.begin() + len);
-}
-
-bool ChunkOctree::PostUpdateNode(ChunkOctreeNode * node)
-{
-	bool expand = node->needExpand;
-	bool hasChild = node->hadChild;
-
-	//The node is not a leaf.
-	if (expand)
-	{
-		//Update ready state
-		node->isReady = true;
-		for (int i = 0; i < 8; i++)
-		{
-			node->isReady &= PostUpdateNode(node->child[i]);
-		}
-
-		//Only update if this node is ready.
-		if (node->isReady)
-		{
-			//If this node is not ready or no children, then we don't need update the list.
-			if (!hasChild && node->groupReady == true)
-			{
-				//List update
-				ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
-				l->prev = node->prev;
-				if (node->prev != NULL)
-				{
-					node->prev->next = l;
-				}
-				r->next = node->next;
-				if (node->next != NULL)
-				{
-					node->next->prev = r;
-				}
-
-				//Self destruct
-				node->InList(workList, false, false);
-			}
-
-			//Tell others that this node is ready.
-			return true;
-		}
-	}
-	//The node is leaf node
-	//It may needs to be narrowed ("fall back", collapase).
-	else
-	{
-		if (node->isReady)
-		{
-			//Cleaning
-			if (hasChild)
-			{
-				//List update
-				ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
-				node->prev = l->prev;
-				if (l->prev != NULL)
-				{
-					l->prev->next = node;
-				}
-				node->next = r->next;
-				if (r->next != NULL)
-				{
-					r->next->prev = node;
-				}
-
-				//Destroy children
-				CleanChildResc(node);
-			}
-
-			//Tell others this node is ready.
-			return true;
-		}
-	}
-
-	//This node is not ready.
-	return false;
-}
-
-void ChunkOctree::CleanChildResc(ChunkOctreeNode * node)
-{
-	if (node->child[0] != NULL)
-	{
-		for (int i = 0; i < 8; i++)
-		{
-			CleanChildResc(node->child[i]);
-			node->child[i]->InList(workList, false, true);
-			
-			//TODO: Reusing
-			node->child[i] = NULL;
-		}
-	}
 }
 
 void ChunkOctree::UpdateNode(ChunkOctreeNode * node)

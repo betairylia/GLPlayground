@@ -835,9 +835,6 @@ void update()
 				{
 					chunkOctree.GPUworkList.at(i).node->InitGroupMesh();
 					chunkOctree.GPUworkList.at(i).node->BuildGroupMesh();
-
-					chunkOctree.GPUworkList.at(i).node->isReady = true;
-					chunkOctree.GPUworkList.at(i).node->groupReady = true;
 				}
 				else
 				{

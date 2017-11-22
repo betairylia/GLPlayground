@@ -31,15 +31,21 @@ public:
 		group = NULL;
 
 		isReady = false;
-		groupReady = false;
+		childVisible = true;
 	}
-	ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scale);
+	ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scale, ChunkOctreeNode *fa, int index);
 	virtual ~ChunkOctreeNode();
 
 	glm::vec3 pos, centerPos;
 	int scale;
-	ChunkOctreeNode* child[8], *next, *prev;
-	blockGroup* group;
+	
+	ChunkOctreeNode *child[8], *next, *prev, *father;
+	int fatherChildIndex;
+	
+	blockGroup *group;
+
+	//Temporarily remove a child
+	//bool childMask[8];
 
 	void CreateGroup();
 	void BuildGroupData();
@@ -57,7 +63,7 @@ public:
 	ChunkOctreeNode* GetMostRight();
 
 	//For multi thread updating
-	bool needExpand, hadChild, isReady, groupReady;
+	bool needExpand, hadChild, isReady, isReadyPrev, childVisible;//, groupReady;
 	bool inListBuild, inListDestroy;
 };
 

@@ -1,16 +1,25 @@
 #include "ChunkOctreeNode.h"
 
-ChunkOctreeNode::ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scale) :
+ChunkOctreeNode::ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scale, ChunkOctreeNode *fa, int index) :
 	pos(_pos), 
 	centerPos(_centerPos), 
-	scale(_scale)
+	scale(_scale),
+	father(fa),
+	fatherChildIndex(index)
 {
 	memset(child, 0, sizeof(child));
 	group = NULL;
+
+	isReady = false;
+	childVisible = true;
 }
 
 ChunkOctreeNode::~ChunkOctreeNode()
 {
+	if (father != NULL && father->child[fatherChildIndex] == this)
+	{
+		father->child[fatherChildIndex] = NULL;
+	}
 }
 
 void ChunkOctreeNode::CreateGroup()
@@ -37,8 +46,6 @@ void ChunkOctreeNode::InitGroupMesh()
 void ChunkOctreeNode::BuildGroupMesh()
 {
 	group->GenerateBuffer(false, VariablePool::cs_ChunkMeshGeneration_ScaleIndex);
-
-	groupReady = true;
 }
 
 void ChunkOctreeNode::FreeGroupBuffer()
@@ -111,9 +118,14 @@ void ChunkOctreeNode::OutList(std::vector<GPUWork>& list, bool isBuild)
 
 bool ChunkOctreeNode::hasChild()
 {
+	if (!childVisible)
+	{
+		return false;
+	}
+
 	for (int i = 0; i < 8; i++)
 	{
-		if (child[i] == NULL || child[i]->groupReady == false)
+		if (child[i] == NULL)
 		{
 			return false;
 		}

@@ -39,6 +39,8 @@ public:
 	bool PostUpdateNode(ChunkOctreeNode* node);
 	void CleanChildResc(ChunkOctreeNode* node);
 
+	void StopChildLoading(ChunkOctreeNode * node);
+
 	std::vector<ChunkOctreeNode::GPUWork> workList;
 	std::vector<ChunkOctreeNode::GPUWork> GPUworkList;
 	std::mutex& m_mutex;
