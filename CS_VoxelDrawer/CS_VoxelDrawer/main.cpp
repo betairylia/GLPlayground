@@ -184,7 +184,7 @@ float lambdax = 72, lambdaz = 64, ax = 24, az = 5, px = 3, pz = 12;
 int mousePrevX = -1, mousePrevY = -1;
 float mouse_dx, mouse_dy;
 float cameraRotY = 0.0f, cameraRotX = 0.0f;
-float scalarSpeed, spdWalk = 50.0f, spdRun = 200.0f;
+float scalarSpeed, spdWalk = 50.0f, spdRun = 800.0f;
 
 //Blockgroup management
 std::mutex m_mutex;
@@ -380,11 +380,11 @@ void initApp()
 
 	//Camera position
 	cameraPos.x = -8.456f;
-	cameraPos.y = 27.408f;
+	cameraPos.y = 60.408f;
 	cameraPos.z = 14.361f;
 
-	cameraRotX = -0.476f;
-	cameraRotY = -1.962f;
+	cameraRotX = -0.2f;
+	cameraRotY = -2.3f;
 
 	//VAO Creation
 
@@ -835,6 +835,9 @@ void update()
 				{
 					chunkOctree.GPUworkList.at(i).node->InitGroupMesh();
 					chunkOctree.GPUworkList.at(i).node->BuildGroupMesh();
+
+					chunkOctree.GPUworkList.at(i).node->isReady = true;
+					chunkOctree.GPUworkList.at(i).node->groupReady = true;
 				}
 				else
 				{

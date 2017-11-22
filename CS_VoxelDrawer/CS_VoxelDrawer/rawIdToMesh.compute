@@ -69,6 +69,7 @@ void main()
 
     ivec4 blockProp;
     blockProp.x = (clamp(int((1.0f / float(scaleInv)) * blockPos.y), 8, 24) - 8) * 2;
+    /*blockProp.x = max(blockPos.x, blockPos.z);*/
 
     if(faceNeg.x == true)
     {

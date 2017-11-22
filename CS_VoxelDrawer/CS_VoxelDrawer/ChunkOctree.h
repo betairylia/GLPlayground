@@ -7,7 +7,7 @@
 #include <thread>
 #include <mutex>
 
-const int mapBigChunkLenth = 4;
+const int mapBigChunkLenth = 1;
 
 //TODO: Update blockGroups
 
@@ -24,13 +24,6 @@ public:
 	//					 If we do not set node->group to NULL as soon as the node was added into the destruct list,
 	//					 the blockGroup of that node will keep cleaned up and reused while the node comes a leaf node again,
 	//					 without rebuild the group buffers.
-	typedef struct
-	{
-		bool isBuild;
-		bool needDelete;
-		ChunkOctreeNode* node;
-		blockGroup* groupBak;
-	}GPUWork;
 
 	ChunkOctree(std::mutex& _m, std::condition_variable& _cv, bool useMT);
 	virtual ~ChunkOctree();
@@ -43,11 +36,11 @@ public:
 	//Multi thread updating
 	void PreUpdateNode(ChunkOctreeNode* node);
 	void DoWork();
-	void PostUpdateNode(ChunkOctreeNode* node);
+	bool PostUpdateNode(ChunkOctreeNode* node);
 	void CleanChildResc(ChunkOctreeNode* node);
 
-	std::vector<GPUWork> workList;
-	std::vector<GPUWork> GPUworkList;
+	std::vector<ChunkOctreeNode::GPUWork> workList;
+	std::vector<ChunkOctreeNode::GPUWork> GPUworkList;
 	std::mutex& m_mutex;
 	std::condition_variable& m_condVar;
 

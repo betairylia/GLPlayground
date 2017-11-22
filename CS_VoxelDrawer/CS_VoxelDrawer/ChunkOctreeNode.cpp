@@ -56,6 +56,72 @@ void ChunkOctreeNode::ClearGroup()
 	group = NULL;
 }
 
+void ChunkOctreeNode::InList(std::vector<GPUWork>& list, bool isBuild, bool needDelete)
+{
+	if (isBuild == true && inListBuild == false)
+	{
+		list.push_back({ isBuild, needDelete, this, group });
+		isReady = false;
+		inListBuild = true;
+	}
+	else if(inListDestroy == false)
+	{
+		list.push_back({ isBuild, needDelete, this, group });
+		group = NULL;
+		inListDestroy = true;
+	}
+
+	OutList(list, !isBuild);
+}
+
+void ChunkOctreeNode::OutList(std::vector<GPUWork>& list, bool isBuild)
+{
+	if (isBuild)
+	{
+		if (inListBuild == false)
+		{
+			return;
+		}
+	}
+	else
+	{
+		if (inListDestroy == false)
+		{
+			return;
+		}
+	}
+
+	for (std::vector<GPUWork>::iterator iter = list.begin(); iter != list.end(); iter++)
+	{
+		if (iter->isBuild == isBuild && iter->node == this)
+		{
+			if (isBuild)
+			{
+				inListBuild = false;
+			}
+			else
+			{
+				inListDestroy = false;
+			}
+			list.erase(iter);
+			return;
+		}
+	}
+}
+
+bool ChunkOctreeNode::hasChild()
+{
+	for (int i = 0; i < 8; i++)
+	{
+		if (child[i] == NULL || child[i]->groupReady == false)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 ChunkOctreeNode * ChunkOctreeNode::GetMostLeft()
 {
 	if (child[0] == NULL)
