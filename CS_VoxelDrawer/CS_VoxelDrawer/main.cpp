@@ -678,6 +678,7 @@ void render()
 		if (useOctree)
 		{
 			chunkOctree.Drawall(36, 2, modelUniformIndex);
+			//chunkOctree.Drawall_WalkThrough(36, 2, modelUniformIndex);
 		}
 		else
 		{
@@ -841,6 +842,7 @@ void update()
 					if (chunkOctree.GPUworkList.at(i).groupBak != NULL)
 					{
 						chunkOctree.GPUworkList.at(i).groupBak->FreeBuffers();
+						chunkOctree.GPUworkList.at(i).node->group = NULL;
 					}
 				}
 			}

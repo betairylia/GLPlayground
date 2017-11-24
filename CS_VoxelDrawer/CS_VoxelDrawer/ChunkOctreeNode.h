@@ -32,6 +32,7 @@ public:
 
 		isReady = false;
 		childVisible = true;
+		inLinkedList = false;
 	}
 	ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scale, ChunkOctreeNode *fa, int index);
 	virtual ~ChunkOctreeNode();
@@ -55,15 +56,19 @@ public:
 	void ClearGroup();
 
 	void InList(std::vector<GPUWork>& list, bool isBuild, bool needDelete);
-	void OutList(std::vector<GPUWork>& list, bool isBuild);
+	void OutList(std::vector<GPUWork>& list, bool isBuild, bool isDelete = false);
 
 	bool hasChild();
+
+	void SelfInLinkedList();
+	void _SetSubTreeInLinkedList(ChunkOctreeNode * node, bool isIn);
+	void SubTreeInLinkedList();
 
 	ChunkOctreeNode* GetMostLeft();
 	ChunkOctreeNode* GetMostRight();
 
 	//For multi thread updating
-	bool needExpand, hadChild, isReady, isReadyPrev, childVisible;//, groupReady;
+	bool needExpand, hadChild, isReady, isReadyPrev, childVisible, inLinkedList;//, groupReady;
 	bool inListBuild, inListDestroy;
 };
 

@@ -37,8 +37,8 @@ void main()
     /*vertex.color = colorHigh;*/
 
     /*Show LODs*/
-    /*float colorMixture = (float(blockProp.x) / 32.0f);*/
-    float colorMixture = 1.0f;
+    float colorMixture = (float(blockProp.x) / 32.0f);
+    /*float colorMixture = 1.0f;*/
 
     if(position.w > 0.75f)
     {

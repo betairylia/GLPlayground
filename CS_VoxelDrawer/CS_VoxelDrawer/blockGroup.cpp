@@ -42,6 +42,7 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 						0.5f * ax *
 						(sinf(((float)x * scale + groupPosX + px + 10) / lambdax * 0.5 * 3.1415926f)) *
 						(sinf(((float)z * scale + groupPosZ + pz +  5) / lambdaz * 0.5 * 3.1415926f)))
+				//if(groupPosY + (y * scale) < 16)
 				{
 					blockId[getPos(x, y, z)] = 1;
 				}
@@ -241,10 +242,14 @@ void blockGroup::Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixU
 
 		if (useMeshInsteadOfInstanceCube)
 		{
+			ToolBox::printError();
 			glBindVertexArray(mesh_vao);
+			ToolBox::printError();
 			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirectBuffer_ssbo);
 
+			ToolBox::printError();
 			glDrawArraysIndirect(GL_TRIANGLES, (void *)0);
+			ToolBox::printError();
 		}
 		else
 		{

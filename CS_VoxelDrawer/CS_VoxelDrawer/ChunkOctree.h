@@ -7,7 +7,7 @@
 #include <thread>
 #include <mutex>
 
-const int mapBigChunkLenth = 1;
+const int mapBigChunkLenth = 4;
 
 //TODO: Update blockGroups
 
@@ -47,6 +47,8 @@ public:
 	std::condition_variable& m_condVar;
 
 	void Drawall(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
+	void Drawall_WalkThrough(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
+	void _DrawNode(ChunkOctreeNode * node, int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
 
 	ChunkOctreeNode* mp_treeRoot[mapBigChunkLenth][mapBigChunkLenth];
 	ChunkOctreeNode renderList[mapBigChunkLenth][mapBigChunkLenth];

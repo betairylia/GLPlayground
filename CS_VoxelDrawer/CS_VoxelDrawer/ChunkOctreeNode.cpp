@@ -12,10 +12,19 @@ ChunkOctreeNode::ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scal
 
 	isReady = false;
 	childVisible = true;
+	inLinkedList = false;
 }
 
 ChunkOctreeNode::~ChunkOctreeNode()
 {
+	for (int i = 0; i < 8; i++)
+	{
+		if (child[i] != NULL)
+		{
+			child[i]->father = NULL;
+		}
+	}
+
 	if (father != NULL && father->child[fatherChildIndex] == this)
 	{
 		father->child[fatherChildIndex] = NULL;
@@ -71,17 +80,16 @@ void ChunkOctreeNode::InList(std::vector<GPUWork>& list, bool isBuild, bool need
 		isReady = false;
 		inListBuild = true;
 	}
-	else if(inListDestroy == false)
+	if (isBuild == false && inListDestroy == false)
 	{
 		list.push_back({ isBuild, needDelete, this, group });
-		group = NULL;
 		inListDestroy = true;
 	}
 
 	OutList(list, !isBuild);
 }
 
-void ChunkOctreeNode::OutList(std::vector<GPUWork>& list, bool isBuild)
+void ChunkOctreeNode::OutList(std::vector<GPUWork>& list, bool isBuild, bool isDelete)
 {
 	if (isBuild)
 	{
@@ -108,6 +116,10 @@ void ChunkOctreeNode::OutList(std::vector<GPUWork>& list, bool isBuild)
 			}
 			else
 			{
+				if (isDelete && !(iter->needDelete == isDelete))
+				{
+					continue;
+				}
 				inListDestroy = false;
 			}
 			list.erase(iter);
@@ -134,9 +146,40 @@ bool ChunkOctreeNode::hasChild()
 	return true;
 }
 
+void ChunkOctreeNode::SelfInLinkedList()
+{
+	_SetSubTreeInLinkedList(this, false);
+
+	inLinkedList = true;
+}
+
+void ChunkOctreeNode::_SetSubTreeInLinkedList(ChunkOctreeNode *node, bool isIn)
+{
+	node->inLinkedList = isIn;
+	for (int i = 0; i < 8; i++)
+	{
+		if(node->child[i] != NULL)
+			_SetSubTreeInLinkedList(node->child[i], isIn);
+	}
+}
+
+void ChunkOctreeNode::SubTreeInLinkedList()
+{
+	inLinkedList = false;
+
+	ChunkOctreeNode *l = GetMostLeft(), *r = GetMostRight();
+
+	l->inLinkedList = true;
+	while (l != r)
+	{
+		l = l -> next;
+		l->inLinkedList = true;
+	}
+}
+
 ChunkOctreeNode * ChunkOctreeNode::GetMostLeft()
 {
-	if (child[0] == NULL)
+	if (child[0] == NULL || childVisible == false)
 	{
 		return this;
 	}
@@ -145,7 +188,7 @@ ChunkOctreeNode * ChunkOctreeNode::GetMostLeft()
 
 ChunkOctreeNode * ChunkOctreeNode::GetMostRight()
 {
-	if (child[7] == NULL)
+	if (child[7] == NULL || childVisible == false)
 	{
 		return this;
 	}
