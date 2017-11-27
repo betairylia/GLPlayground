@@ -8,8 +8,7 @@ uniform mat4 proj;
 uniform mat4 view;
 uniform mat4 model_group;
 
-uniform vec4 colorLow;
-uniform vec4 colorHigh;
+uniform int useLODColor;
 
 out VERTEX
 {
@@ -32,37 +31,39 @@ void main()
     gl_Position = proj * mv * (position);
     vertex.position = model_group * position;
     vertex.normal = mat3(model_group) * normal.xyz;
-    /*vertex.color = vec4(float(blockProp.x) / 255.0f, float(blockProp.y) / 255.0f, float(blockProp.z) / 255.0f, 1.0f);*/
-    /*vertex.color = colorLow * (float(32-blockProp.x) / 32.0f) + colorHigh * (float(blockProp.x) / 32.0f);*/
 
-    /*vertex.color = colorHigh;*/
+    if(useLODColor == 0)
+    {
+        vertex.color = vec4(float(blockProp.x) / 255.0f, float(blockProp.y) / 255.0f, float(blockProp.z) / 255.0f, 1.0f);
+    }
+    else
+    {
+        /*Show LODs*/
+        float colorMixture = 1.0f;
 
-    /*Show LODs*/
-    /*float colorMixture = (float(blockProp.x) / 32.0f);*/
-    float colorMixture = 1.0f;
-
-    if(position.w > 0.75f)
-    {
-        vertex.color = colorMixture * colorLOD0 + (1 - colorMixture) * colorBase;
-    }
-    else if(position.w > 0.45f)
-    {
-        vertex.color = colorMixture * colorLOD1 + (1 - colorMixture) * colorBase;
-    }
-    else if(position.w > 0.20f)
-    {
-        vertex.color = colorMixture * colorLOD2 + (1 - colorMixture) * colorBase;
-    }
-    else if(position.w > 0.110f)
-    {
-        vertex.color = colorMixture * colorLOD3 + (1 - colorMixture) * colorBase;
-    }
-    else if(position.w > 0.0620f)
-    {
-        vertex.color = colorMixture * colorLOD4 + (1 - colorMixture) * colorBase;
-    }
-    else if(position.w > 0.03120f)
-    {
-        vertex.color = colorMixture * colorLOD5 + (1 - colorMixture) * colorBase;
+        if(position.w > 0.75f)
+        {
+            vertex.color = colorMixture * colorLOD0 + (1 - colorMixture) * colorBase;
+        }
+        else if(position.w > 0.45f)
+        {
+            vertex.color = colorMixture * colorLOD1 + (1 - colorMixture) * colorBase;
+        }
+        else if(position.w > 0.20f)
+        {
+            vertex.color = colorMixture * colorLOD2 + (1 - colorMixture) * colorBase;
+        }
+        else if(position.w > 0.110f)
+        {
+            vertex.color = colorMixture * colorLOD3 + (1 - colorMixture) * colorBase;
+        }
+        else if(position.w > 0.0620f)
+        {
+            vertex.color = colorMixture * colorLOD4 + (1 - colorMixture) * colorBase;
+        }
+        else if(position.w > 0.03120f)
+        {
+            vertex.color = colorMixture * colorLOD5 + (1 - colorMixture) * colorBase;
+        }
     }
 }

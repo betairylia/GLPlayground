@@ -30,9 +30,7 @@ public:
 		memset(child, 0, sizeof(child));
 		group = NULL;
 
-		isReady = false;
-		childVisible = true;
-		inLinkedList = false;
+		isEmpty = false;
 	}
 	ChunkOctreeNode(glm::vec3 _pos, glm::vec3 _centerPos, int _scale, ChunkOctreeNode *fa, int index);
 	virtual ~ChunkOctreeNode();
@@ -60,15 +58,8 @@ public:
 
 	bool hasChild();
 
-	void SelfInLinkedList();
-	void _SetSubTreeInLinkedList(ChunkOctreeNode * node, bool isIn);
-	void SubTreeInLinkedList();
-
-	ChunkOctreeNode* GetMostLeft();
-	ChunkOctreeNode* GetMostRight();
-
 	//For multi thread updating
-	bool needExpand, hadChild, isReady, isReadyPrev, childVisible, inLinkedList;//, groupReady;
+	bool isEmpty;
 	bool inListBuild, inListDestroy;
 };
 

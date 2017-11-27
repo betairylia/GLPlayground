@@ -47,6 +47,7 @@ public:
 	//glBindVertexArray(...) before call this method
 	//position - normal - tangent - texCoord1&2 / color - instance
 	void Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
+	bool ReadyForDraw();
 	
 	int getPos(int x, int y, int z);
 

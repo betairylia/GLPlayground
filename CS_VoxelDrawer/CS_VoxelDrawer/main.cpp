@@ -647,7 +647,7 @@ void initApp()
 	chunkOctree.compute_programme = compute_programme;
 	ToolBox::printError();
 
-	ToolBox::LoadMap("height.bmp", "color.bmp");
+	ToolBox::LoadMap("height_Mesas.bmp", "color_Mesas.bmp");
 
 	initBlockGroups();
 	ToolBox::printError();
@@ -674,6 +674,7 @@ void render()
 		glm::mat4 view = glm::inverse(glm::translate(glm::mat4(1.0f), cameraPos) * cameraRot);
 		glm::mat4 proj = glm::perspective(cameraArc, 1.0f * aspectRatio, cameraNear, cameraFar);
 
+		glUniform1i(glGetUniformLocation(pipeline_MRT, "useLODColor"), VariablePool::useLODColor ? 1 : 0);
 		glUniformMatrix4fv(glGetUniformLocation(pipeline_MRT, "view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(glGetUniformLocation(pipeline_MRT, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 		GLint modelUniformIndex = glGetUniformLocation(pipeline_MRT, "model_group");
@@ -744,6 +745,24 @@ void render()
 
 		sprintf(tmpstr, "LOD Total: %d", tmp);
 		textDrawer.printText2D(tmpstr, 0, 900 - 96 - (16 * 6), 16, 8);
+
+		int i = 0;
+
+		if (VariablePool::LODTreeFrozen)
+		{
+			sprintf(tmpstr, "LOD Octree Freezed.");
+			textDrawer.printText2D(tmpstr, 0, 692 - 16 * i, 16, 8);
+
+			i++;
+		}
+
+		if (VariablePool::useLODColor)
+		{
+			sprintf(tmpstr, "Plain colors for different LOD Lvls enabled.");
+			textDrawer.printText2D(tmpstr, 0, 692 - 16 * i, 16, 8);
+
+			i++;
+		}
 	}
 	else
 	{
@@ -930,7 +949,7 @@ void OctreeUpdateMain()
 {
 	while (!octreeThreadTerminate)
 	{
-		if (useOctree)
+		if (useOctree && VariablePool::LODTreeFrozen == false)
 		{
 			//chunkOctree.Update(glm::vec3(cameraPos.x, 0, cameraPos.z));
 			chunkOctree.Update(cameraPos);
@@ -998,6 +1017,11 @@ void key(unsigned char key, int x, int y)
 	if (key == 'p' || key == 'P')
 	{
 		updateEveryFrame = !updateEveryFrame;
+		VariablePool::LODTreeFrozen = !VariablePool::LODTreeFrozen;
+	}
+	if (key == 'c' || key == 'C')
+	{
+		VariablePool::useLODColor = !VariablePool::useLODColor;
 	}
 
 	if (glutGetModifiers() & GLUT_ACTIVE_SHIFT)

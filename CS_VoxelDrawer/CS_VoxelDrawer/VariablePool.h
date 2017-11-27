@@ -22,4 +22,6 @@ public:
 	static int mapBigChunkLenth;
 
 	static float LODLoadDistance[6];
+
+	static bool LODTreeFrozen, useLODColor;
 };

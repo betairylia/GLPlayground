@@ -32,7 +32,7 @@ public:
 	void UpdateNode(ChunkOctreeNode* node);
 	
 	//Multi thread updating
-	void PreUpdateNode(ChunkOctreeNode* node);
+	bool PreUpdateNode(ChunkOctreeNode* node);
 	void DoWork();
 	bool PostUpdateNode(ChunkOctreeNode* node);
 	void CleanChildResc(ChunkOctreeNode* node);

@@ -190,6 +190,8 @@ void blockGroup::FreeBuffers()
 	}
 
 	buffersFreed = true;
+	bufferInited = false;
+	bufferUpdated = false;
 
 	VariablePool::allocatedGPUGroupCount--;
 }
@@ -316,6 +318,11 @@ void blockGroup::Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixU
 	{
 		//printf("Error! buffer not generated before drawing!\n");
 	}
+}
+
+bool blockGroup::ReadyForDraw()
+{
+	return bufferUpdated;
 }
 
 int blockGroup::getPos(int x, int y, int z)
