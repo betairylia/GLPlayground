@@ -18,3 +18,10 @@ float VariablePool::lambdax, VariablePool::lambdaz, VariablePool::px, VariablePo
 int VariablePool::cs_ChunkMeshGeneration_ScaleIndex;
 
 int VariablePool::allocatedGroupCount = 0, VariablePool::allocatedGPUGroupCount = 0, VariablePool::LODCount[10] = {};
+
+unsigned char VariablePool::heightMap[2048][2048];
+unsigned char VariablePool::colorMap[3][2048][2048];
+
+int VariablePool::mapBigChunkLenth = 4;
+
+float VariablePool::LODLoadDistance[6] = {192.0f, 256.0f, 256.0f, 512.0f, 512.0f, 8192.0f};

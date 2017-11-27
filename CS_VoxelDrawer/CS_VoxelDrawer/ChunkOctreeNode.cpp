@@ -40,10 +40,15 @@ void ChunkOctreeNode::CreateGroup()
 void ChunkOctreeNode::BuildGroupData()
 {
 	//TODO
-	group->Init_sinXsinY(
-		VariablePool::lambdax, VariablePool::lambdaz,
-		VariablePool::px, VariablePool::pz,
-		VariablePool::ax, VariablePool::az,
+	//group->Init_sinXsinY(
+	//	VariablePool::lambdax, VariablePool::lambdaz,
+	//	VariablePool::px, VariablePool::pz,
+	//	VariablePool::ax, VariablePool::az,
+	//	pos.x, pos.z, pos.y);
+
+	group->InitHeightColorMaps(
+		VariablePool::mapBigChunkLenth / 2,
+		1.0f,
 		pos.x, pos.z, pos.y);
 }
 
@@ -148,9 +153,11 @@ bool ChunkOctreeNode::hasChild()
 
 void ChunkOctreeNode::SelfInLinkedList()
 {
+	bool mask = GetMostLeft()->inLinkedList;
+
 	_SetSubTreeInLinkedList(this, false);
 
-	inLinkedList = true;
+	inLinkedList = true & mask;
 }
 
 void ChunkOctreeNode::_SetSubTreeInLinkedList(ChunkOctreeNode *node, bool isIn)
@@ -165,15 +172,16 @@ void ChunkOctreeNode::_SetSubTreeInLinkedList(ChunkOctreeNode *node, bool isIn)
 
 void ChunkOctreeNode::SubTreeInLinkedList()
 {
+	bool mask = inLinkedList;
 	inLinkedList = false;
 
 	ChunkOctreeNode *l = GetMostLeft(), *r = GetMostRight();
 
-	l->inLinkedList = true;
+	l->inLinkedList = true & mask;
 	while (l != r)
 	{
 		l = l -> next;
-		l->inLinkedList = true;
+		l->inLinkedList = true & mask;
 	}
 }
 

@@ -7,8 +7,6 @@
 #include <thread>
 #include <mutex>
 
-const int mapBigChunkLenth = 4;
-
 //TODO: Update blockGroups
 
 class ChunkOctree
@@ -50,8 +48,8 @@ public:
 	void Drawall_WalkThrough(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
 	void _DrawNode(ChunkOctreeNode * node, int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
 
-	ChunkOctreeNode* mp_treeRoot[mapBigChunkLenth][mapBigChunkLenth];
-	ChunkOctreeNode renderList[mapBigChunkLenth][mapBigChunkLenth];
+	ChunkOctreeNode* mp_treeRoot[32][32];
+	ChunkOctreeNode renderList[32][32];
 
 	glm::vec3 m_playerPos;
 

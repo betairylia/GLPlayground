@@ -61,6 +61,46 @@ void blockGroup::Init_sinXsinY(float lambdax, float lambdaz, float px, float pz,
 	bufferUpdated = false;
 }
 
+void blockGroup::InitHeightColorMaps(float mapScale, float mapScaleY, float groupPosX, float groupPosZ, float groupPosY)
+{
+	memset(blockId, 0, sizeof(blockId));
+
+	for (int x = 0; x < 32; x++)
+	{
+		for (int y = 0; y < 32; y++)
+		{
+			for (int z = 0; z < 32; z++)
+			{
+				int mX = (int)((x * scale + groupPosX) / mapScale);
+				int mZ = (int)((z * scale + groupPosZ) / mapScale);
+
+				if ((groupPosY + (y * scale)) < (mapScaleY * VariablePool::heightMap[mX][mZ]))
+				{
+					blockId[getPos(x, y, z)] = 
+						((int)(VariablePool::colorMap[0][mX][mZ]) << 16) + 
+						((int)(VariablePool::colorMap[1][mX][mZ]) <<  8) +
+						((int)(VariablePool::colorMap[2][mX][mZ]));
+				}
+				else
+				{
+					blockId[getPos(x, y, z)] = 0;
+				}
+
+				if ((groupPosY + (y * scale)) < 8)
+				{
+					blockId[getPos(x, y, z)] = (102 << 8) + 204; //(0, 102, 204), "Ocean blue"
+				}
+			}
+		}
+	}
+
+	blockGroupPos.x = groupPosX;
+	blockGroupPos.y = groupPosY;
+	blockGroupPos.z = groupPosZ;
+
+	bufferUpdated = false;
+}
+
 void blockGroup::InitBuffers(GLuint _cs)
 {
 	//compute_program = _cs;
@@ -272,7 +312,7 @@ void blockGroup::Draw(int vertCount, int instanceAttribIndex, GLint modelMatrixU
 	}
 	else
 	{
-		printf("Error! buffer not generated before drawing!\n");
+		//printf("Error! buffer not generated before drawing!\n");
 	}
 }
 

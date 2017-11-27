@@ -171,7 +171,7 @@ rawIdToMesh shader optimization
 Dynamic buffer size allocation
 */
 
-float cameraArc = 1.047f, aspectRatio = 16.0f / 10.0f, cameraNear = 1.0f, cameraFar = 8192.0f;
+float cameraArc = 1.309f /*75 degrees*/, aspectRatio = 16.0f / 9.0f, cameraNear = 1.0f, cameraFar = 8192.0f;
 float prevTime, nowTime;
 int avgFPS = 0, minFPS = 999, currentFPS = 0;
 int frameCount = 0;
@@ -196,7 +196,7 @@ int maximumComputeWorksPerFrame = 128, maximumWorkTimeMs = 8;
 int workListLenth;
 
 //Rendering stuffs
-const int windowHeight = 900, windowWidth = 1440;
+const int windowHeight = 900, windowWidth = 1600;
 
 GLuint frameBuffer_MRT, frameBuffer_SSAO = 0;
 GLuint RT_Position, RT_Normal, RT_Color, RT_AOMap = 0;
@@ -327,7 +327,7 @@ void initGL(int *argc, char **argv)
 	setVSync(true);
 
 	glEnable(GL_DEPTH_TEST);
-	glClearColor(0.25, 0.25, 0.25, 1.0);
+	glClearColor(0, 0, 0, 1.0);
 
 	//glDisable(GL_CULL_FACE);
 
@@ -647,6 +647,8 @@ void initApp()
 	chunkOctree.compute_programme = compute_programme;
 	ToolBox::printError();
 
+	ToolBox::LoadMap("height_Snowy.bmp", "color_Snowy.bmp");
+
 	initBlockGroups();
 	ToolBox::printError();
 
@@ -677,8 +679,8 @@ void render()
 
 		if (useOctree)
 		{
-			chunkOctree.Drawall(36, 2, modelUniformIndex);
-			//chunkOctree.Drawall_WalkThrough(36, 2, modelUniformIndex);
+			//chunkOctree.Drawall(36, 2, modelUniformIndex);
+			chunkOctree.Drawall_WalkThrough(36, 2, modelUniformIndex);
 		}
 		else
 		{

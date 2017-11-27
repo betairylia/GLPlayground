@@ -142,6 +142,7 @@
     <ClInclude Include="blockGroup.h" />
     <ClInclude Include="ChunkOctree.h" />
     <ClInclude Include="ChunkOctreeNode.h" />
+    <ClInclude Include="CImg.h" />
     <ClInclude Include="TextDrawer.h" />
     <ClInclude Include="ToolBox.h" />
     <ClInclude Include="VariablePool.h" />

@@ -24,8 +24,18 @@ float rand(vec2 co)
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
 }
 
+vec3 colorHigh = vec3(41.0f / 255.0f, 128.0f / 255.0f, 185.0f / 255.0f);
+vec3 colorLow = vec3(44.0f / 255.0f, 62.0f / 255.0f, 80.0f / 255.0f);
+
 void main()
 {
+    vec3 clr = texture(samplerColor, vertex.uv).rgb;
+    if(clr.r == 0.0f && clr.g == 0.0f && clr.b == 0.0f)
+    {
+        aoMap = vec4(colorHigh * vertex.uv.y + colorLow * (1.0f - vertex.uv.y), 1.0);
+        return;
+    }
+
     vec2 vSampleVector;
     vec3 vPos = texture(samplerPosition, vertex.uv).xyz;
     vec3 vNormal = texture(samplerNormal, vertex.uv).xyz;
@@ -45,6 +55,6 @@ void main()
         occ += fScaler * fRes;
     }
     occ = 1 - (occ / sampleCount);
-    aoMap = vec4(texture(samplerColor, vertex.uv).rgb * occ, 1.0);
+    aoMap = vec4(clr * occ, 1.0);
     /*aoMap = vec4(occ, occ, occ, 1.0f);*/
 }

@@ -184,3 +184,12 @@ void ToolBox::CheckShaderCompiling(char* shaderName, GLuint shader)
 		printf("The %s shader failed to compile with the error: %s \n", shaderName, infolog);
 	}
 }
+
+void ToolBox::LoadMap(char * height, char * color)
+{
+	CImg<unsigned char> heightMap(height);
+	CImg<unsigned char> colorMap(color);
+
+	memcpy(VariablePool::heightMap, heightMap.data(), sizeof(VariablePool::heightMap));
+	memcpy(VariablePool::colorMap, colorMap.data(), sizeof(VariablePool::colorMap));
+}

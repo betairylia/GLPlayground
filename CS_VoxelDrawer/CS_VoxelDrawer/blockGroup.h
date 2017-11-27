@@ -34,6 +34,7 @@ public:
 
 	//generate data inside a blockGroup.
 	void Init_sinXsinY(float lambdax, float lambdaz, float px, float pz, float ax, float az, float groupPosX, float groupPosZ, float groupPosY = 0.0f);
+	void InitHeightColorMaps(float mapScale, float mapScaleY, float groupPosX, float groupPosZ, float groupPosY = 0.0f);
 	void InitBuffers(GLuint _cs = 0);
 
 	void FreeBuffers();

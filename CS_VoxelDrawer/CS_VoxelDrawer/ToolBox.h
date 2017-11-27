@@ -10,6 +10,11 @@
 
 #include <iostream>
 
+#include "VariablePool.h"
+#include "CImg.h"
+
+using namespace cimg_library;
+
 class ToolBox
 {
 public:
@@ -22,5 +27,7 @@ public:
 	static void printError();
 	static void CheckProgramLinking(char* programName, GLuint program);
 	static void CheckShaderCompiling(char* shaderName, GLuint shader);
+
+	static void LoadMap(char* height, char* color);
 };
 

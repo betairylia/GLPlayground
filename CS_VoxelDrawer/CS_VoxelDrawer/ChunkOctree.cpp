@@ -13,9 +13,9 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 {
 	m_playerPos = playerPos;
 
-	for (int i = 0; i < mapBigChunkLenth; i++)
+	for (int i = 0; i < VariablePool::mapBigChunkLenth; i++)
 	{
-		for (int j = 0; j < mapBigChunkLenth; j++)
+		for (int j = 0; j < VariablePool::mapBigChunkLenth; j++)
 		{
 			if (mp_treeRoot[i][j] == NULL)
 			{
@@ -28,6 +28,8 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 				renderList[i][j].next = mp_treeRoot[i][j];
 				mp_treeRoot[i][j]->prev = &renderList[i][j];
 				mp_treeRoot[i][j]->next = NULL;
+
+				mp_treeRoot[i][j]->inLinkedList = true;
 			}
 		
 			//UpdateNode(mp_treeRoot[i][j]);
@@ -36,9 +38,9 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 		}
 	}
 	DoWork();
-	for (int i = 0; i < mapBigChunkLenth; i++)
+	for (int i = 0; i < VariablePool::mapBigChunkLenth; i++)
 	{
-		for (int j = 0; j < mapBigChunkLenth; j++)
+		for (int j = 0; j < VariablePool::mapBigChunkLenth; j++)
 		{
 			//printf("Entering PostUpdate\n");
 			PostUpdateNode(mp_treeRoot[i][j]);
@@ -57,9 +59,9 @@ void ChunkOctree::Drawall(int vertCount, int instanceAttribIndex, GLint modelMat
 		VariablePool::LODCount[i] = 0;
 	}
 
-	for (int i = 0; i < mapBigChunkLenth; i++)
+	for (int i = 0; i < VariablePool::mapBigChunkLenth; i++)
 	{
-		for (int j = 0; j < mapBigChunkLenth; j++)
+		for (int j = 0; j < VariablePool::mapBigChunkLenth; j++)
 		{
 			ChunkOctreeNode* pRender = renderList[i][j].next;
 
@@ -95,9 +97,9 @@ void ChunkOctree::Drawall_WalkThrough(int vertCount, int instanceAttribIndex, GL
 		VariablePool::LODCount[i] = 0;
 	}
 
-	for (int i = 0; i < mapBigChunkLenth; i++)
+	for (int i = 0; i < VariablePool::mapBigChunkLenth; i++)
 	{
-		for (int j = 0; j < mapBigChunkLenth; j++)
+		for (int j = 0; j < VariablePool::mapBigChunkLenth; j++)
 		{
 			_DrawNode(mp_treeRoot[i][j], vertCount, instanceAttribIndex, modelMatrixUniformIndex);
 		}
@@ -120,7 +122,7 @@ void ChunkOctree::_DrawNode(ChunkOctreeNode* node, int vertCount, int instanceAt
 		node->group->Draw(vertCount, instanceAttribIndex, modelMatrixUniformIndex);
 	}
 
-	if (node->hasChild())
+	if (node->group == NULL && node->hasChild())
 	{
 		for (int i = 0; i < 8; i++)
 		{
@@ -156,6 +158,14 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 			expand = true;
 		}
 
+		//int id = 0, s = (node->scale >> 1);
+		//while (s > 0) { id++; s >>= 1; }
+
+		//if (dist <= VariablePool::LODLoadDistance[id])
+		//{
+		//	expand = true;
+		//}
+
 		//Do not load chunks bigger than scale 2
 		/*if (node->scale > 2)
 		{
@@ -163,7 +173,7 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 		}*/
 	}
 
-	if (node->pos.y > 32)
+	if (node->pos.y >= 256)
 	{
 		load = false;
 	}
@@ -184,15 +194,17 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 	//And it MUST be a leaf node since the update process before.
 	else if (expand && !hasChild)
 	{
+		bool doLinkListWork = false;
+
 		//May be we need this...
 		if (!node->inLinkedList)
 		{
 			node->childVisible = true;
-			node->SelfInLinkedList();
 
 			if (node->hasChild())
 			{
 				//List update
+				node->SelfInLinkedList();
 				ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
 				l->prev = node->prev;
 				if (node->prev != NULL)
@@ -210,6 +222,10 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 				{
 					node->InList(workList, false, false);
 				}
+ 			}
+			else
+			{
+				doLinkListWork = true;
 			}
 		}
 	
@@ -222,7 +238,7 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 			if (node->child[i] == NULL)
 			{
 				glm::vec3 cPos = node->pos + (float)node->scale * VariablePool::childPos[i];
-				node->child[i] = new ChunkOctreeNode(cPos, cPos + VariablePool::quarter, node->scale / 2, node, i);
+				node->child[i] = new ChunkOctreeNode(cPos, cPos + ((float)node->scale * VariablePool::quarter), node->scale / 2, node, i);
 			}
 			node->child[i]->isReady = false;
 			node->child[i]->OutList(workList, false, true);
@@ -241,6 +257,23 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 			//Make sure all the child node is finalized
 			//In PreUpdate: Allocation, Create local list and Register into workList.
 			PreUpdateNode(node->child[i]);
+		}
+
+		if (doLinkListWork)
+		{
+			node->SubTreeInLinkedList();
+
+			ChunkOctreeNode *l = node->GetMostLeft(), *r = node->GetMostRight();
+			l->prev = node->prev;
+			if (node->prev != NULL)
+			{
+				node->prev->next = l;
+			}
+			r->next = node->next;
+			if (node->next != NULL)
+			{
+				node->next->prev = r;
+			}
 		}
 
 		node->OutList(workList, true);
@@ -467,6 +500,14 @@ void ChunkOctree::DoWork()
 			continue;
 		}
 	}
+
+	//Sort the workList
+	std::sort(workList.begin(), workList.end(), [](const ChunkOctreeNode::GPUWork& lhs, const ChunkOctreeNode::GPUWork& rhs)
+	{
+		if (lhs.isBuild == false) { return true; }
+		else if (rhs.isBuild == true) { return false; }
+		return true;
+	});
 
 	len = workList.size() > 128 ? 128 : workList.size();
 	//len = workList.size();

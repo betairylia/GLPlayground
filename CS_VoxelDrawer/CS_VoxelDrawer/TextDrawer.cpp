@@ -49,7 +49,7 @@ void TextDrawer::initText2D(const char * texturePath)
 	glUseProgram(textRenderProgram);
 	glUniform1i(glGetUniformLocation(textRenderProgram, "textTexture"), 0);
 
-	glUniform2i(glGetUniformLocation(textRenderProgram, "windowSizeDiv2"), 720, 450);
+	glUniform2i(glGetUniformLocation(textRenderProgram, "windowSizeDiv2"), 800, 450);
 
 	ToolBox::CheckShaderCompiling("textDrawer-Vert", vs);
 	ToolBox::CheckShaderCompiling("textDrawer-Frag", fs);

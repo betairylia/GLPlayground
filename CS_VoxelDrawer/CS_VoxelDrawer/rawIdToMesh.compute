@@ -67,12 +67,12 @@ void main()
     uint index = atomicAdd(count, vertices);
     vec4 blockPosf4 = vec4(blockPos.x, blockPos.y, blockPos.z, scaleInv - 1.0f);
 
-    ivec4 blockProp = ivec4(32, 0, 0, 0);
+    ivec4 blockProp = ivec4(blockId[serPos] >> 16, (blockId[serPos] >> 8) & 255, blockId[serPos] & 255, 0);
     /*blockProp.x = (clamp(int((1.0f / float(scaleInv)) * blockPos.y), 8, 24) - 8) * 2;*/
-    if(blockPos.x == 0 || blockPos.x == 31 || blockPos.z == 0 || blockPos.z == 31)
+    /*if(blockPos.x == 0 || blockPos.x == 31 || blockPos.z == 0 || blockPos.z == 31)
     {
         blockProp.x = 0;
-    }
+    }*/
 
     if(faceNeg.x == true)
     {
