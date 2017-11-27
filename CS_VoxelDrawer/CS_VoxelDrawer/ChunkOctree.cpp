@@ -273,7 +273,7 @@ void ChunkOctree::DoWork()
 		return lValue > rValue;
 	});
 
-	len = workList.size() > 128 ? 128 : workList.size();
+	len = workList.size() > 512 ? 512 : workList.size();
 	//len = workList.size();
 	if (len == 0) return;
 
