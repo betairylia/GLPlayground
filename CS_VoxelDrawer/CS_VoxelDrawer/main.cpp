@@ -647,7 +647,7 @@ void initApp()
 	chunkOctree.compute_programme = compute_programme;
 	ToolBox::printError();
 
-	ToolBox::LoadMap("height_Snowy.bmp", "color_Snowy.bmp");
+	ToolBox::LoadMap("height.bmp", "color.bmp");
 
 	initBlockGroups();
 	ToolBox::printError();
@@ -662,6 +662,9 @@ void render()
 	{
 		//MRT Pass
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer_MRT);
+
+		//Test: wireframe
+		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 		glEnable(GL_DEPTH_TEST);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -692,6 +695,7 @@ void render()
 
 		//AO Pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glDisable(GL_DEPTH_TEST);
 		

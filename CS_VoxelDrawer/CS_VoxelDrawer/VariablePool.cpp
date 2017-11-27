@@ -22,6 +22,8 @@ int VariablePool::allocatedGroupCount = 0, VariablePool::allocatedGPUGroupCount 
 unsigned char VariablePool::heightMap[2048][2048];
 unsigned char VariablePool::colorMap[3][2048][2048];
 
-int VariablePool::mapBigChunkLenth = 4;
+int VariablePool::mapBigChunkLenth = 2;
 
-float VariablePool::LODLoadDistance[6] = {192.0f, 256.0f, 256.0f, 512.0f, 512.0f, 8192.0f};
+float VariablePool::LODLoadDistance[6] = { 192.0f, 256.0f, 512.0f, 1024.0f, 2048.0f, 8192.0f };
+//float VariablePool::LODLoadDistance[6] = { 192.0f, 256.0f, 384.0f, 768.0f, 1024.0f, 8192.0f };
+//float VariablePool::LODLoadDistance[6] = {256.0f, 384.0f, 384.0f, 512.0f, 1024.0f, 8192.0f};

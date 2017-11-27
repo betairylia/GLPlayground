@@ -52,44 +52,6 @@ void ChunkOctree::Update(glm::vec3 playerPos)
 
 //glUseProgram(...) before call this method
 //glBindVertexArray(...) before call this method
-void ChunkOctree::Drawall(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex)
-{
-	for (int i = 0; i < 10; i++)
-	{
-		VariablePool::LODCount[i] = 0;
-	}
-
-	for (int i = 0; i < VariablePool::mapBigChunkLenth; i++)
-	{
-		for (int j = 0; j < VariablePool::mapBigChunkLenth; j++)
-		{
-			ChunkOctreeNode* pRender = renderList[i][j].next;
-
-			//printf("=======Start frame=======\n");
-			
-			//Go through the render list
-			while (pRender != NULL)
-			{
-				//printf("Now  in: %d\t%d\t%d\tx%d\n", (int)pRender->pos.x, (int)pRender->pos.y, (int)pRender->pos.z, pRender->scale);
-				//Simply draw them all
-				if (/*pRender->isReady == true &&*/ pRender->group != NULL)
-				{
-					//printf("Drawing: %d\t%d\t%d\tx%d\n", (int)pRender->pos.x, (int)pRender->pos.y, (int)pRender->pos.z, pRender->scale);
-					//Debug Text
-					int id = 0, tmp = pRender->scale >> 1;
-					while (tmp > 0) { tmp >>= 1; id++; }
-					VariablePool::LODCount[id]++;
-
-					pRender->group->Draw(vertCount, instanceAttribIndex, modelMatrixUniformIndex);
-				}
-				pRender = pRender->next;
-			}
-
-			//printf("=======EndOf frame=======\n");
-		}
-	}
-}
-
 void ChunkOctree::Drawall_WalkThrough(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex)
 {
 	for (int i = 0; i < 10; i++)
@@ -149,22 +111,22 @@ void ChunkOctree::PreUpdateNode(ChunkOctreeNode * node)
 		float dist = glm::distance(m_playerPos, node->centerPos);
 
 		//TODO: different load distance between different scale
-		dist /= (float)node->scale;
+		//dist /= (float)node->scale;
 
 		//Distence to expand, DIVIDED BY 2
-		float tmp_loadDist = 128.0f;
+		/*float tmp_loadDist = 192.0f;
 		if (dist <= tmp_loadDist)
 		{
 			expand = true;
+		}*/
+
+		int id = 0, s = (node->scale >> 1);
+		while (s > 0) { id++; s >>= 1; }
+
+		if (dist <= VariablePool::LODLoadDistance[id])
+		{
+			expand = true;
 		}
-
-		//int id = 0, s = (node->scale >> 1);
-		//while (s > 0) { id++; s >>= 1; }
-
-		//if (dist <= VariablePool::LODLoadDistance[id])
-		//{
-		//	expand = true;
-		//}
 
 		//Do not load chunks bigger than scale 2
 		/*if (node->scale > 2)
@@ -504,9 +466,11 @@ void ChunkOctree::DoWork()
 	//Sort the workList
 	std::sort(workList.begin(), workList.end(), [](const ChunkOctreeNode::GPUWork& lhs, const ChunkOctreeNode::GPUWork& rhs)
 	{
-		if (lhs.isBuild == false) { return true; }
-		else if (rhs.isBuild == true) { return false; }
-		return true;
+		int lValue = lhs.isBuild ? 0 : 33, rValue = rhs.isBuild ? 0 : 33;
+		lValue += lhs.node->scale;
+		rValue += rhs.node->scale;
+
+		return lValue > rValue;
 	});
 
 	len = workList.size() > 128 ? 128 : workList.size();

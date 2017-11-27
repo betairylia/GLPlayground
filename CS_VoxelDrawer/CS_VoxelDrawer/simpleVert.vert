@@ -18,13 +18,13 @@ out VERTEX
     vec4 color;
 } vertex;
 
-/*vec4 colorBase = vec4(0, 0, 0, 1);
+vec4 colorBase = vec4(0, 0, 0, 1);
 vec4 colorLOD0 = vec4(1, 0, 0, 1);
 vec4 colorLOD1 = vec4(1, 1, 0, 1);
 vec4 colorLOD2 = vec4(0, 1, 0, 1);
 vec4 colorLOD3 = vec4(0, 1, 1, 1);
 vec4 colorLOD4 = vec4(0, 0, 1, 1);
-vec4 colorLOD5 = vec4(1, 0, 1, 1);*/
+vec4 colorLOD5 = vec4(1, 0, 1, 1);
 
 void main()
 {
@@ -32,16 +32,16 @@ void main()
     gl_Position = proj * mv * (position);
     vertex.position = model_group * position;
     vertex.normal = mat3(model_group) * normal.xyz;
-    vertex.color = vec4(float(blockProp.x) / 255.0f, float(blockProp.y) / 255.0f, float(blockProp.z) / 255.0f, 1.0f);
+    /*vertex.color = vec4(float(blockProp.x) / 255.0f, float(blockProp.y) / 255.0f, float(blockProp.z) / 255.0f, 1.0f);*/
     /*vertex.color = colorLow * (float(32-blockProp.x) / 32.0f) + colorHigh * (float(blockProp.x) / 32.0f);*/
 
     /*vertex.color = colorHigh;*/
 
     /*Show LODs*/
-    /*float colorMixture = (float(blockProp.x) / 32.0f);
-    /*float colorMixture = 1.0f;*/
+    /*float colorMixture = (float(blockProp.x) / 32.0f);*/
+    float colorMixture = 1.0f;
 
-    /*if(position.w > 0.75f)
+    if(position.w > 0.75f)
     {
         vertex.color = colorMixture * colorLOD0 + (1 - colorMixture) * colorBase;
     }
@@ -64,5 +64,5 @@ void main()
     else if(position.w > 0.03120f)
     {
         vertex.color = colorMixture * colorLOD5 + (1 - colorMixture) * colorBase;
-    }*/
+    }
 }

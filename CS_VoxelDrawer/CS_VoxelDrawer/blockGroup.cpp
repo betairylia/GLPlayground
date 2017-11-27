@@ -140,20 +140,22 @@ void blockGroup::InitBuffers(GLuint _cs)
 		glGenBuffers(1, &vertNormal_vbo);
 		glGenBuffers(1, &vertProp_vbo);
 
+		int size = 65536;
+
 		glBindBuffer(GL_ARRAY_BUFFER, vertPos_vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * 65536, NULL, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * size, NULL, GL_DYNAMIC_DRAW);
 
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, NULL);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vertNormal_vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * 65536, NULL, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * size, NULL, GL_DYNAMIC_DRAW);
 
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, NULL);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vertProp_vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::ivec4) * 65536, NULL, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::ivec4) * size, NULL, GL_DYNAMIC_DRAW);
 
 		glEnableVertexAttribArray(2);
 		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, NULL);

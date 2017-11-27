@@ -44,7 +44,6 @@ public:
 	std::mutex& m_mutex;
 	std::condition_variable& m_condVar;
 
-	void Drawall(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
 	void Drawall_WalkThrough(int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
 	void _DrawNode(ChunkOctreeNode * node, int vertCount, int instanceAttribIndex, GLint modelMatrixUniformIndex);
 

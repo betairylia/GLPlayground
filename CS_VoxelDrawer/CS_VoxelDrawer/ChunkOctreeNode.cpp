@@ -177,11 +177,10 @@ void ChunkOctreeNode::SubTreeInLinkedList()
 
 	ChunkOctreeNode *l = GetMostLeft(), *r = GetMostRight();
 
-	l->inLinkedList = true & mask;
-	while (l != r)
+	while (l != nullptr && l != r)
 	{
-		l = l -> next;
 		l->inLinkedList = true & mask;
+		l = l->next;
 	}
 }
 
