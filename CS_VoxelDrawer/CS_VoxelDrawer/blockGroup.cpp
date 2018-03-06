@@ -103,22 +103,6 @@ void blockGroup::InitHeightColorMaps(float mapScale, float mapScaleY, float grou
 
 void blockGroup::InitBuffers(GLuint _cs)
 {
-	//compute_program = _cs;
-	if (useMeshInsteadOfInstanceCube)
-	{
-		cmd.baseInstance = 0;
-		cmd.count = 0;
-		cmd.first = 0;
-		cmd.primCount = 1;
-	}
-	else
-	{
-		cmd.baseInstance = 0;
-		cmd.count = 36;
-		cmd.first = 0;
-		cmd.primCount = 0;
-	}
-
 	glGenVertexArrays(1, &cs_vao);
 	glBindVertexArray(cs_vao);
 
@@ -127,9 +111,7 @@ void blockGroup::InitBuffers(GLuint _cs)
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, blockId_ssbo);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * 32768, blockId, GL_DYNAMIC_DRAW);
 
-	glGenBuffers(1, &indirectBuffer_ssbo);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(DrawArraysIndirectCommand), &cmd, GL_DYNAMIC_DRAW);
+	indirectBufferIndex = IndirectBufferAllocator::GetSingleton()->GetNewIndirectBuffer(this->blockGroupPos, this->scale);
 
 	if (useMeshInsteadOfInstanceCube)
 	{
@@ -183,10 +165,12 @@ void blockGroup::FreeBuffers()
 {
 	if (useMeshInsteadOfInstanceCube)
 	{
-		GLuint buf[] = { blockId_ssbo, indirectBuffer_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo };
+		GLuint buf[] = { blockId_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo };
 		glDeleteBuffers(5, buf);
 		glDeleteVertexArrays(1, &cs_vao);
 		glDeleteVertexArrays(1, &mesh_vao);
+
+		IndirectBufferAllocator::GetSingleton()->FreeIndirectBuffer(indirectBufferIndex);
 	}
 
 	buffersFreed = true;
@@ -208,38 +192,16 @@ void blockGroup::GenerateBuffer(bool uploadBuffers, int computeShaderScaleIndex)
 			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(blockId), blockId);
 		}
 
-		//clear the indirect buffer
-		if (useMeshInsteadOfInstanceCube)
-		{
-			cmd.baseInstance = 0;
-			cmd.count = 0;
-			cmd.first = 0;
-			cmd.primCount = 1;
-
-			if (computeShaderScaleIndex >= 0)
-			{
-				glUniform1f(computeShaderScaleIndex, (1.0f / scale));
-			}
-		}
-		else
-		{
-			cmd.baseInstance = 0;
-			cmd.count = 36;
-			cmd.first = 0;
-			cmd.primCount = 0;
-		}
-
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, indirectBuffer_ssbo);
-		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(DrawArraysIndirectCommand), &cmd);
+		IndirectBufferAllocator::GetSingleton()->RefreshBufferData(indirectBufferIndex);
 
 		if (useMeshInsteadOfInstanceCube)
 		{
-			const GLuint ssbos[] = { blockId_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo, indirectBuffer_ssbo };
+			const GLuint ssbos[] = { blockId_ssbo, vertPos_vbo, vertNormal_vbo, vertProp_vbo, IndirectBufferAllocator::GetSingleton()->indirectBufferObj };
 			glBindBuffersBase(GL_SHADER_STORAGE_BUFFER, 0, 5, ssbos);
 		}
 		else
 		{
-			const GLuint ssbos[] = { blockId_ssbo, blockInstance_ssbo, blockProp_ssbo, indirectBuffer_ssbo };
+			const GLuint ssbos[] = { blockId_ssbo, blockInstance_ssbo, blockProp_ssbo, IndirectBufferAllocator::GetSingleton()->indirectBufferObj };
 			glBindBuffersBase(GL_SHADER_STORAGE_BUFFER, 0, 4, ssbos);
 		}
 

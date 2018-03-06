@@ -36,6 +36,9 @@
     <ClCompile Include="ToolBox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="IndirectBufferAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="blockGroup.h">
@@ -57,6 +60,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CImg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IndirectBufferAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

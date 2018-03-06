@@ -12,13 +12,7 @@
 
 #include "VariablePool.h"
 #include "ToolBox.h"
-
-typedef  struct {
-	GLuint  count;
-	GLuint  primCount;
-	GLuint  first;
-	GLuint  baseInstance;
-} DrawArraysIndirectCommand;
+#include "IndirectBufferAllocator.h"
 
 typedef struct {
 	glm::vec4 pos;
@@ -58,10 +52,11 @@ public:
 	unsigned int blockId[32768];
 	//GLuint instanceCount;
 	//GLsizei baseInstanceVertexCount;
-	DrawArraysIndirectCommand cmd;
+	//DrawArraysIndirectCommand cmd;
 
 	//Buffers used for computation and drawing
-	GLuint cs_vao, blockId_ssbo, blockInstance_ssbo, blockProp_ssbo, indirectBuffer_ssbo;
+	int indirectBufferIndex;
+	GLuint cs_vao, blockId_ssbo, blockInstance_ssbo, blockProp_ssbo;//, indirectBuffer_ssbo;
 	GLuint mesh_vao, vertPos_vbo, vertNormal_vbo, vertProp_vbo;
 	//GLuint baseInstance_cube;
 	//GLuint compute_program;
